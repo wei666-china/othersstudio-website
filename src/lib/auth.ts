@@ -13,7 +13,9 @@ async function hmacSign(message: string, secret: string): Promise<string> {
     ["sign"]
   );
   const sig = await crypto.subtle.sign("HMAC", key, encoder.encode(message));
-  return Buffer.from(sig).toString("hex");
+  return Array.from(new Uint8Array(sig))
+    .map((b) => b.toString(16).padStart(2, "0"))
+    .join("");
 }
 
 function timingSafeEqual(a: string, b: string): boolean {

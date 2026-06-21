@@ -31,6 +31,26 @@ function formatDate(d: string | null) {
   return new Date(d).toLocaleDateString("zh-CN", { year: "numeric", month: "long", day: "numeric" });
 }
 
+// 有 id（真实文章）渲染为可点击链接；无 id（示例占位）渲染为静态卡片
+function CardWrapper({
+  id,
+  className,
+  children,
+}: {
+  id: string | null;
+  className?: string;
+  children: React.ReactNode;
+}) {
+  if (id) {
+    return (
+      <Link href={`/thoughts/${id}`} className={`${className} no-underline cursor-pointer`}>
+        {children}
+      </Link>
+    );
+  }
+  return <div className={className}>{children}</div>;
+}
+
 export const dynamic = "force-dynamic";
 
 export default async function ThoughtsPage() {
@@ -55,12 +75,12 @@ export default async function ThoughtsPage() {
   ];
 
   const displayPinned = pinned
-    ? { tag: pinned.tag, title: pinned.title, excerpt: pinned.excerpt || "", date: formatDate(pinned.published_at), readTime: `${Math.ceil((pinned.content?.length || 0) / 500)} 分钟阅读` }
-    : fallbackPinned;
+    ? { id: pinned.id as string, tag: pinned.tag, title: pinned.title, excerpt: pinned.excerpt || "", date: formatDate(pinned.published_at), readTime: `${Math.ceil((pinned.content?.length || 0) / 500)} 分钟阅读` }
+    : { ...fallbackPinned, id: null as string | null };
 
   const displayArticles = hasData
-    ? articles.map((a) => ({ tag: a.tag, title: a.title, excerpt: a.excerpt || "", date: formatDate(a.published_at), readTime: `${Math.ceil((a.content?.length || 0) / 500)} 分钟` }))
-    : fallbackArticles;
+    ? articles.map((a) => ({ id: a.id as string | null, tag: a.tag, title: a.title, excerpt: a.excerpt || "", date: formatDate(a.published_at), readTime: `${Math.ceil((a.content?.length || 0) / 500)} 分钟` }))
+    : fallbackArticles.map((a) => ({ ...a, id: null as string | null }));
 
   return (
     <>
@@ -81,7 +101,7 @@ export default async function ThoughtsPage() {
         </div>
 
         <FadeIn>
-          <div className="grid grid-cols-1 lg:grid-cols-[1.3fr_1fr] bg-white rounded-2xl overflow-hidden border border-brown-light/20 hover:shadow-[0_16px_48px_rgba(61,43,31,0.1)] hover:-translate-y-0.5 transition-all cursor-pointer">
+          <CardWrapper id={displayPinned.id} className="grid grid-cols-1 lg:grid-cols-[1.3fr_1fr] bg-white rounded-2xl overflow-hidden border border-brown-light/20 hover:shadow-[0_16px_48px_rgba(61,43,31,0.1)] hover:-translate-y-0.5 transition-all">
             <div className="aspect-[4/3] bg-gradient-to-br from-surface via-[#D4C4B0] to-brown-light flex items-center justify-center text-white">
               <svg width="80" height="80" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="0.8"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg>
             </div>
@@ -94,7 +114,7 @@ export default async function ThoughtsPage() {
                 <span>{displayPinned.readTime}</span>
               </div>
             </div>
-          </div>
+          </CardWrapper>
         </FadeIn>
       </section>
 
@@ -118,9 +138,9 @@ export default async function ThoughtsPage() {
 
       {/* Articles Grid */}
       <section className="max-w-[1200px] mx-auto px-6 md:px-15 pb-30 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-        {displayArticles.map((article) => (
-          <FadeIn key={article.title}>
-            <div className="bg-white rounded-2xl overflow-hidden border border-brown-light/15 hover:-translate-y-1 hover:shadow-[0_16px_48px_rgba(61,43,31,0.1)] transition-all cursor-pointer">
+        {displayArticles.map((article, idx) => (
+          <FadeIn key={article.id ?? `${article.title}-${idx}`}>
+            <CardWrapper id={article.id} className="block bg-white rounded-2xl overflow-hidden border border-brown-light/15 hover:-translate-y-1 hover:shadow-[0_16px_48px_rgba(61,43,31,0.1)] transition-all">
               <div className="w-full aspect-[16/10] bg-gradient-to-br from-surface to-brown-light/40 flex items-center justify-center text-brown-light">
                 <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M9 21V9"/></svg>
               </div>
@@ -133,7 +153,7 @@ export default async function ThoughtsPage() {
                   <span>{article.readTime}</span>
                 </div>
               </div>
-            </div>
+            </CardWrapper>
           </FadeIn>
         ))}
       </section>

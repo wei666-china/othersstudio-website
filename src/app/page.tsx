@@ -247,6 +247,54 @@ export default async function Home() {
       </section>
 
 
+      {/* Developer / API Section */}
+      <section className="py-30 px-6 md:px-15" id="developer">
+        <div className="max-w-[1000px] mx-auto">
+          <div className="relative overflow-hidden rounded-3xl bg-surface border border-brown-light/25 px-8 md:px-16 py-16 text-center">
+            <div className="absolute -top-24 -right-24 w-[320px] h-[320px] rounded-full bg-[radial-gradient(circle,rgba(201,168,140,0.18)_0%,transparent_70%)] pointer-events-none" />
+
+            <span className="inline-block text-xs font-semibold tracking-[3px] uppercase text-brown-muted mb-4">For Developers · AI 时代原生</span>
+            <h2 className="text-[clamp(1.8rem,3.5vw,2.6rem)] mb-4">让你的 AI 读懂你的身体</h2>
+            <p className="text-base text-brown-muted max-w-[580px] mx-auto mb-10 leading-relaxed">
+              健康，应当像 AI 一样被持续追踪、被真正理解。用 App 同款账号登录，生成专属 API Key，把你的健康数据开放给
+              Cursor、Claude Code、Codex 等 AI Agent——让它比任何人都更了解你。
+            </p>
+
+            <div className="flex flex-col sm:flex-row gap-4 items-center justify-center mb-10">
+              <Link
+                href="/me/developer"
+                className="inline-flex items-center gap-2 px-8 py-3.5 bg-brown-deep text-white rounded-full text-sm font-medium no-underline shadow-[0_4px_16px_rgba(61,43,31,0.2)] hover:bg-brown-warm hover:-translate-y-0.5 transition-all"
+              >
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z"/></svg>
+                申请 API Key
+              </Link>
+              <Link
+                href="/me/developer/docs"
+                className="inline-flex items-center gap-2 px-8 py-3.5 bg-transparent text-brown-deep border-[1.5px] border-brown-light rounded-full text-sm font-medium no-underline hover:border-brown-deep hover:bg-brown-deep/3 hover:-translate-y-0.5 transition-all"
+              >
+                查看 API 文档
+              </Link>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 max-w-[640px] mx-auto text-left">
+              {[
+                { step: "1", title: "登录", desc: "用 App 同款账号登录" },
+                { step: "2", title: "生成 Key", desc: "一键创建专属 API Key" },
+                { step: "3", title: "接入 Agent", desc: "AI 自动读取你的数据" },
+              ].map((s) => (
+                <div key={s.step} className="flex items-start gap-3 bg-white/60 rounded-xl px-4 py-3 border border-brown-light/15">
+                  <span className="shrink-0 w-6 h-6 rounded-full bg-brown-warm text-white text-xs font-bold flex items-center justify-center mt-0.5">{s.step}</span>
+                  <div>
+                    <p className="text-sm font-medium text-brown-deep">{s.title}</p>
+                    <p className="text-xs text-brown-muted mt-0.5">{s.desc}</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      </section>
+
       {/* Team Section */}
       <section className="py-30 px-6 md:px-15" id="team">
         <div className="text-center mb-20">

@@ -2,7 +2,10 @@ import Link from "next/link";
 import Image from "next/image";
 import { notFound } from "next/navigation";
 import Navbar from "@/components/Navbar";
+import Footer from "@/components/Footer";
 import FadeIn from "@/components/FadeIn";
+import BrandCover from "@/components/BrandCover";
+import { resolveCover } from "@/lib/covers";
 import { supabaseAdmin } from "@/lib/supabase";
 
 export const dynamic = "force-dynamic";
@@ -54,6 +57,7 @@ export default async function ThoughtDetailPage({
   if (!article) notFound();
 
   const readTime = `${Math.ceil((article.content?.length || 0) / 500)} 分钟阅读`;
+  const cover = resolveCover(article.cover_url);
   const paragraphs = (article.content || "")
     .split(/\n{2,}/)
     .map((p) => p.trim())
@@ -63,84 +67,81 @@ export default async function ThoughtDetailPage({
     <>
       <Navbar />
 
-      <article className="max-w-[760px] mx-auto px-6 pt-35 pb-30">
+      <article className="max-w-[720px] mx-auto px-6 pt-36 pb-28">
         <FadeIn>
-          <Link
-            href="/thoughts"
-            className="inline-flex items-center gap-1.5 text-sm text-brown-mid no-underline hover:text-brown-deep transition-colors mb-8"
-          >
-            ← 返回思考列表
-          </Link>
+          <div className="flex items-center justify-between gap-4 mb-8">
+            <Link
+              href="/thoughts"
+              className="group inline-flex items-center gap-1.5 text-sm text-text-mid no-underline hover:text-text transition-colors"
+            >
+              <span className="transition-transform duration-300 group-hover:-translate-x-1">
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>
+              </span>
+              返回思考列表
+            </Link>
 
-          <span className="inline-block px-3.5 py-1 bg-accent-soft text-accent rounded-full text-xs font-semibold mb-5">
-            {article.tag}
-          </span>
+            <span className="inline-flex items-center px-3 py-1 border border-border-strong text-text-mid rounded-full text-xs font-medium tracking-wide">
+              {article.tag}
+            </span>
+          </div>
 
-          <h1 className="text-[clamp(2rem,4vw,3rem)] leading-tight mb-5 tracking-tight">
+          <h1 className="text-[clamp(2rem,4.4vw,3rem)] leading-[1.16] mb-6 tracking-[-0.02em]">
             {article.title}
           </h1>
 
-          <div className="flex items-center gap-4 text-xs text-brown-light mb-10">
+          <div className="flex items-center gap-4 text-xs text-text-soft font-mono mb-12">
             <span>{formatDate(article.published_at)}</span>
+            <span className="w-1 h-1 rounded-full bg-text-soft/50" />
             <span>{readTime}</span>
           </div>
 
-          {article.cover_url ? (
-            <div className="w-full aspect-[16/9] relative rounded-2xl overflow-hidden mb-12 border border-brown-light/15">
+          {cover.kind === "image" ? (
+            <div className="w-full aspect-[16/9] relative rounded-2xl overflow-hidden mb-14 border border-border">
               <Image
-                src={article.cover_url}
+                src={cover.url}
                 alt={article.title}
                 fill
                 className="object-cover"
-                sizes="(max-width: 760px) 100vw, 760px"
+                sizes="(max-width: 720px) 100vw, 720px"
               />
             </div>
           ) : (
-            <div className="w-full aspect-[16/9] bg-gradient-to-br from-surface via-[#D4C4B0] to-brown-light rounded-2xl flex items-center justify-center text-white mb-12">
-              <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="0.8">
-                <path d="M12 2L2 7l10 5 10-5-10-5z" />
-                <path d="M2 17l10 5 10-5" />
-                <path d="M2 12l10 5 10-5" />
-              </svg>
+            <div className="relative w-full aspect-[16/9] rounded-2xl overflow-hidden mb-14 border border-border">
+              <BrandCover seed={`cover-${article.id}`} label={article.tag} variant={cover.palette} />
             </div>
           )}
         </FadeIn>
 
         <FadeIn>
-          <div className="text-[1.05rem] text-brown-mid leading-[1.9]">
+          <div className="text-[1.075rem] text-text-mid leading-[1.92] [&_p+p]:mt-6">
             {paragraphs.length > 0 ? (
               paragraphs.map((p, i) => (
-                <p key={i} className="mb-6 whitespace-pre-line">
+                <p key={i} className="whitespace-pre-line">
                   {p}
                 </p>
               ))
             ) : (
-              <p className="text-brown-muted italic">这篇文章还没有正文内容。</p>
+              <p className="text-text-muted italic">这篇文章还没有正文内容。</p>
             )}
           </div>
         </FadeIn>
 
         <FadeIn>
-          <div className="mt-16 pt-8 border-t border-brown-light/15">
+          <div className="mt-16 pt-8 border-t border-border">
             <Link
               href="/thoughts"
-              className="text-sm text-brown-mid no-underline hover:text-brown-deep transition-colors"
+              className="group inline-flex items-center gap-1.5 text-sm text-text-mid no-underline hover:text-text transition-colors"
             >
-              ← 返回思考列表
+              <span className="transition-transform duration-300 group-hover:-translate-x-1">
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>
+              </span>
+              返回思考列表
             </Link>
           </div>
         </FadeIn>
       </article>
 
-      <footer className="px-6 md:px-15 py-10 border-t border-brown-light/15 flex flex-col md:flex-row justify-between items-center text-xs text-brown-light gap-3">
-        <span>&copy; 2025 DAY 1 Team</span>
-        <Link
-          href="/"
-          className="text-brown-mid no-underline hover:text-brown-deep transition-colors"
-        >
-          ← 返回首页
-        </Link>
-      </footer>
+      <Footer />
     </>
   );
 }

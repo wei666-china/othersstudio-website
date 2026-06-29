@@ -1,6 +1,8 @@
 import Link from "next/link";
 import { createClient } from "@/lib/supabase-server";
 import { signOutAction } from "./developer/actions";
+import { getLocale } from "@/i18n/server";
+import LocaleSwitchButton from "@/components/LocaleSwitchButton";
 
 export default async function MeLayout({
   children,
@@ -11,13 +13,15 @@ export default async function MeLayout({
   const {
     data: { user },
   } = await supabase.auth.getUser();
+  const locale = await getLocale();
+  const isEn = locale === "en";
 
   // 未登录时不渲染外壳（登录页是 /me/login，不经过此 layout 的 user 分支展示）
   if (!user) {
     return <>{children}</>;
   }
 
-  const email = user.email ?? "已登录";
+  const email = user.email ?? (isEn ? "Signed in" : "已登录");
 
   return (
     <div className="min-h-screen bg-[#FAF6F1]">
@@ -39,12 +43,13 @@ export default async function MeLayout({
             <span className="hidden sm:inline text-xs text-[#A08060] max-w-[180px] truncate">
               {email}
             </span>
+            <LocaleSwitchButton />
             <form action={signOutAction}>
               <button
                 type="submit"
                 className="text-xs text-[#A08060] hover:text-red-600 transition-colors cursor-pointer"
               >
-                退出
+                {isEn ? "Sign out" : "退出"}
               </button>
             </form>
           </div>

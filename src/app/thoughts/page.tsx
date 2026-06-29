@@ -1,6 +1,8 @@
 import Link from "next/link";
 import Navbar from "@/components/Navbar";
+import Footer from "@/components/Footer";
 import FadeIn from "@/components/FadeIn";
+import CoverMedia from "@/components/CoverMedia";
 import { supabaseAdmin } from "@/lib/supabase";
 
 async function getArticles() {
@@ -75,41 +77,40 @@ export default async function ThoughtsPage() {
   ];
 
   const displayPinned = pinned
-    ? { id: pinned.id as string, tag: pinned.tag, title: pinned.title, excerpt: pinned.excerpt || "", date: formatDate(pinned.published_at), readTime: `${Math.ceil((pinned.content?.length || 0) / 500)} 分钟阅读` }
-    : { ...fallbackPinned, id: null as string | null };
+    ? { id: pinned.id as string, tag: pinned.tag, title: pinned.title, excerpt: pinned.excerpt || "", date: formatDate(pinned.published_at), readTime: `${Math.ceil((pinned.content?.length || 0) / 500)} 分钟阅读`, cover: (pinned.cover_url as string | null) || null }
+    : { ...fallbackPinned, id: null as string | null, cover: null as string | null };
 
   const displayArticles = hasData
-    ? articles.map((a) => ({ id: a.id as string | null, tag: a.tag, title: a.title, excerpt: a.excerpt || "", date: formatDate(a.published_at), readTime: `${Math.ceil((a.content?.length || 0) / 500)} 分钟` }))
-    : fallbackArticles.map((a) => ({ ...a, id: null as string | null }));
+    ? articles.map((a) => ({ id: a.id as string | null, tag: a.tag, title: a.title, excerpt: a.excerpt || "", date: formatDate(a.published_at), readTime: `${Math.ceil((a.content?.length || 0) / 500)} 分钟`, cover: (a.cover_url as string | null) || null }))
+    : fallbackArticles.map((a) => ({ ...a, id: null as string | null, cover: null as string | null }));
 
   return (
     <>
       <Navbar />
 
-      <header className="pt-35 pb-15 text-center max-w-[800px] mx-auto px-6">
-        <h1 className="text-[clamp(2.5rem,5vw,3.5rem)] mb-4 tracking-tight">思考与产品思路</h1>
-        <p className="text-lg text-brown-muted max-w-[500px] mx-auto">
+      <header className="pt-36 pb-14 max-w-[1200px] mx-auto px-6 md:px-15">
+        <h1 className="text-[clamp(2.5rem,5.5vw,4rem)] mb-4 tracking-[-0.02em] max-w-[16ch]">思考与产品思路</h1>
+        <p className="text-lg text-text-muted max-w-[48ch]">
           关于产品、设计与生活的独立思考。记录灵感、沉淀观点。
         </p>
       </header>
 
       {/* Pinned */}
-      <section className="max-w-[1200px] mx-auto px-6 md:px-15 pb-20">
-        <div className="inline-flex items-center gap-2 text-xs font-semibold text-brown-warm tracking-wide uppercase mb-6">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 2L15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2z"/></svg>
-          置顶精选
-        </div>
-
+      <section className="max-w-[1200px] mx-auto px-6 md:px-15 pb-16">
         <FadeIn>
-          <CardWrapper id={displayPinned.id} className="grid grid-cols-1 lg:grid-cols-[1.3fr_1fr] bg-white rounded-2xl overflow-hidden border border-brown-light/20 hover:shadow-[0_16px_48px_rgba(61,43,31,0.1)] hover:-translate-y-0.5 transition-all">
-            <div className="aspect-[4/3] bg-gradient-to-br from-surface via-[#D4C4B0] to-brown-light flex items-center justify-center text-white">
-              <svg width="80" height="80" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="0.8"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg>
+          <CardWrapper id={displayPinned.id} className="group grid grid-cols-1 lg:grid-cols-[1.25fr_1fr] bg-surface rounded-3xl overflow-hidden border border-border hover:border-border-strong hover:shadow-[0_22px_60px_var(--c-shadow)] hover:-translate-y-0.5 transition-all duration-300">
+            <div className="relative aspect-[16/11] lg:aspect-auto lg:min-h-[360px] overflow-hidden">
+              <CoverMedia cover={displayPinned.cover} seed={`pinned-${displayPinned.title}`} alt={displayPinned.title} zoomOnHover />
+              <span className="absolute top-5 left-5 inline-flex items-center gap-1.5 px-3 py-1.5 bg-ink/80 backdrop-blur-sm text-on-ink rounded-full text-xs font-medium z-10">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2L15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2z"/></svg>
+                置顶精选
+              </span>
             </div>
-            <div className="p-10 lg:p-12 flex flex-col justify-center">
-              <span className="inline-block px-3.5 py-1 bg-accent-soft text-accent rounded-full text-xs font-semibold mb-4 w-fit">{displayPinned.tag}</span>
-              <h2 className="text-2xl lg:text-3xl mb-4 leading-snug">{displayPinned.title}</h2>
-              <p className="text-sm text-brown-muted leading-relaxed mb-6">{displayPinned.excerpt}</p>
-              <div className="text-xs text-brown-light flex gap-4">
+            <div className="p-8 lg:p-12 flex flex-col justify-center">
+              <span className="inline-flex items-center px-3 py-1 border border-border-strong text-text-mid rounded-full text-xs font-medium tracking-wide mb-5 w-fit">{displayPinned.tag}</span>
+              <h2 className="text-2xl lg:text-[2rem] mb-4 leading-[1.2] text-text">{displayPinned.title}</h2>
+              <p className="text-sm text-text-muted leading-relaxed mb-7 line-clamp-4">{displayPinned.excerpt}</p>
+              <div className="text-xs text-text-soft font-mono flex gap-5">
                 <span>{displayPinned.date}</span>
                 <span>{displayPinned.readTime}</span>
               </div>
@@ -118,37 +119,29 @@ export default async function ThoughtsPage() {
         </FadeIn>
       </section>
 
-      {/* Filter Tabs */}
+      {/* Section heading — 真实反映内容，替代过去点击无反应的假筛选 Tab */}
       <section className="max-w-[1200px] mx-auto px-6 md:px-15">
-        <div className="flex gap-1 bg-surface rounded-full p-1 w-fit mx-auto mb-15">
-          {["最近", "热门", "最受欢迎"].map((tab, i) => (
-            <button
-              key={tab}
-              className={`px-6 py-2.5 rounded-full text-sm font-medium transition-all border-none font-sans cursor-pointer ${
-                i === 0
-                  ? "bg-white text-brown-deep shadow-sm"
-                  : "bg-transparent text-brown-muted hover:text-brown-deep"
-              }`}
-            >
-              {tab}
-            </button>
-          ))}
+        <div className="flex items-baseline justify-between gap-4 mb-12 border-b border-border pb-4">
+          <h2 className="font-serif text-xl text-text">全部文章</h2>
+          <span className="text-xs text-text-soft font-mono tracking-wide">
+            按时间倒序 · 共 {displayArticles.length} 篇
+          </span>
         </div>
       </section>
 
       {/* Articles Grid */}
-      <section className="max-w-[1200px] mx-auto px-6 md:px-15 pb-30 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+      <section className="max-w-[1200px] mx-auto px-6 md:px-15 pb-28 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 lg:gap-8">
         {displayArticles.map((article, idx) => (
-          <FadeIn key={article.id ?? `${article.title}-${idx}`}>
-            <CardWrapper id={article.id} className="block bg-white rounded-2xl overflow-hidden border border-brown-light/15 hover:-translate-y-1 hover:shadow-[0_16px_48px_rgba(61,43,31,0.1)] transition-all">
-              <div className="w-full aspect-[16/10] bg-gradient-to-br from-surface to-brown-light/40 flex items-center justify-center text-brown-light">
-                <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M9 21V9"/></svg>
+          <FadeIn key={article.id ?? `${article.title}-${idx}`} delay={(idx % 3) * 80}>
+            <CardWrapper id={article.id} className="group flex flex-col h-full bg-surface rounded-2xl overflow-hidden border border-border hover:border-border-strong hover:-translate-y-1 hover:shadow-[0_18px_50px_var(--c-shadow)] transition-all duration-300">
+              <div className="relative w-full aspect-[16/10] overflow-hidden">
+                <CoverMedia cover={article.cover} seed={`article-${article.title}-${idx}`} label={article.tag} alt={article.title} zoomOnHover />
               </div>
-              <div className="p-6">
-                <span className="inline-block px-2.5 py-0.5 bg-accent-soft text-accent rounded-full text-[0.7rem] font-semibold mb-2.5">{article.tag}</span>
-                <h3 className="font-serif text-lg text-brown-deep mb-2.5 leading-snug">{article.title}</h3>
-                <p className="text-sm text-brown-muted leading-relaxed line-clamp-3">{article.excerpt}</p>
-                <div className="mt-4 pt-3.5 border-t border-brown-light/10 flex justify-between text-xs text-brown-light">
+              <div className="flex flex-col flex-1 p-6">
+                <span className="inline-flex w-fit items-center px-2.5 py-0.5 border border-border-strong text-text-mid rounded-full text-[0.7rem] font-medium tracking-wide mb-3">{article.tag}</span>
+                <h3 className="font-serif text-lg text-text mb-2.5 leading-snug">{article.title}</h3>
+                <p className="text-sm text-text-muted leading-relaxed line-clamp-3">{article.excerpt}</p>
+                <div className="mt-auto pt-4 flex justify-between text-xs text-text-soft font-mono">
                   <span>{article.date}</span>
                   <span>{article.readTime}</span>
                 </div>
@@ -158,10 +151,7 @@ export default async function ThoughtsPage() {
         ))}
       </section>
 
-      <footer className="px-6 md:px-15 py-10 border-t border-brown-light/15 flex flex-col md:flex-row justify-between items-center text-xs text-brown-light gap-3">
-        <span>&copy; 2025 DAY 1 Team</span>
-        <Link href="/" className="text-brown-mid no-underline hover:text-brown-deep transition-colors">← 返回首页</Link>
-      </footer>
+      <Footer />
     </>
   );
 }

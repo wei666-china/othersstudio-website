@@ -1,30 +1,44 @@
 "use client";
 
 import { useState, useRef, useCallback } from "react";
-import { Upload, X, Image as ImageIcon, GripVertical } from "lucide-react";
+import { Upload, X, Image as ImageIcon, GripVertical, Check } from "lucide-react";
 import { uploadImageAction } from "../../actions";
+import BrandCover from "@/components/BrandCover";
+import { BRAND_OPTIONS, DEMO_COVERS } from "@/lib/covers";
 
+type CoverTab = "demo" | "brand" | "upload";
+
+/**
+ * 封面选择器：三种来源合一 —— Demo 图库（真实图）/ 品牌图案（代码绘制）/ 上传自己的图。
+ * 选中任一项写入隐藏 input(name)，值即 cover_url：真实图存路径、品牌图存 "brand:xxx"、上传存 URL。
+ */
 export function ImageUploader({ name, defaultValue }: { name: string; defaultValue?: string }) {
   const [url, setUrl] = useState(defaultValue || "");
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState("");
   const inputRef = useRef<HTMLInputElement>(null);
 
+  const isBrand = url.startsWith("brand:");
+  const isImage = !!url && !isBrand;
+  // 初始 Tab：按现值落到对应来源；上传的图归到 upload，Demo 路径归到 demo
+  const initialTab: CoverTab = isBrand
+    ? "brand"
+    : isImage && DEMO_COVERS.some((d) => d.value === url)
+    ? "demo"
+    : isImage
+    ? "upload"
+    : "demo";
+  const [tab, setTab] = useState<CoverTab>(initialTab);
+
   async function handleUpload(file: File) {
     setUploading(true);
     setError("");
-
     const formData = new FormData();
     formData.append("file", file);
-
     const result = await uploadImageAction(formData);
     setUploading(false);
-
-    if (result.error) {
-      setError(result.error);
-    } else if (result.url) {
-      setUrl(result.url);
-    }
+    if (result.error) setError(result.error);
+    else if (result.url) setUrl(result.url);
   }
 
   function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
@@ -38,22 +52,110 @@ export function ImageUploader({ name, defaultValue }: { name: string; defaultVal
     if (file) handleUpload(file);
   }
 
+  const tabs: { id: CoverTab; label: string }[] = [
+    { id: "demo", label: "Demo 图库" },
+    { id: "brand", label: "品牌图案" },
+    { id: "upload", label: "上传自己的图" },
+  ];
+
   return (
     <div>
       <input type="hidden" name={name} value={url} />
 
-      {url ? (
-        <div className="relative rounded-xl overflow-hidden border border-[#C9A88C]/20">
-          <img src={url} alt="封面" className="w-full h-40 object-cover" />
+      {/* 当前预览 */}
+      <div className="relative rounded-xl overflow-hidden border border-[#C9A88C]/20 h-40 mb-3 bg-[#FAF6F1]">
+        {isImage ? (
+          <img src={url} alt="封面预览" className="w-full h-full object-cover" />
+        ) : (
+          <BrandCover
+            seed="admin-preview"
+            variant={isBrand ? (url.slice(6) as any) : "warm"}
+          />
+        )}
+        {url && (
           <button
             type="button"
             onClick={() => setUrl("")}
             className="absolute top-2 right-2 p-1.5 bg-black/50 rounded-full cursor-pointer border-none"
+            title="清空，使用默认品牌图案"
           >
             <X size={14} className="text-white" />
           </button>
+        )}
+        {!url && (
+          <span className="absolute bottom-2 left-2 text-[0.65rem] text-white/90 bg-black/40 px-2 py-0.5 rounded-full">
+            未选择，前台显示默认品牌图案
+          </span>
+        )}
+      </div>
+
+      {/* Tab 切换 */}
+      <div className="flex gap-1 mb-3 p-1 bg-[#F3EDE6] rounded-lg w-fit">
+        {tabs.map((t) => (
+          <button
+            key={t.id}
+            type="button"
+            onClick={() => setTab(t.id)}
+            className={`px-3 py-1.5 rounded-md text-xs font-medium transition-colors border-none cursor-pointer ${
+              tab === t.id ? "bg-white text-[#3D2B1F] shadow-sm" : "bg-transparent text-[#6B4E3D]"
+            }`}
+          >
+            {t.label}
+          </button>
+        ))}
+      </div>
+
+      {/* Demo 图库 */}
+      {tab === "demo" && (
+        <div className="grid grid-cols-3 gap-2">
+          {DEMO_COVERS.map((d) => (
+            <button
+              key={d.value}
+              type="button"
+              onClick={() => setUrl(d.value)}
+              className={`relative aspect-[16/10] rounded-lg overflow-hidden border cursor-pointer transition-all ${
+                url === d.value ? "border-[#5C3D2E] ring-2 ring-[#5C3D2E]/30" : "border-[#C9A88C]/20 hover:border-[#C9A88C]/50"
+              }`}
+            >
+              <img src={d.value} alt={d.label} className="w-full h-full object-cover" />
+              {url === d.value && (
+                <span className="absolute top-1 right-1 w-5 h-5 rounded-full bg-[#5C3D2E] flex items-center justify-center">
+                  <Check size={12} className="text-white" />
+                </span>
+              )}
+            </button>
+          ))}
         </div>
-      ) : (
+      )}
+
+      {/* 品牌图案 */}
+      {tab === "brand" && (
+        <div className="grid grid-cols-3 gap-2">
+          {BRAND_OPTIONS.map((b) => (
+            <button
+              key={b.value}
+              type="button"
+              onClick={() => setUrl(b.value)}
+              className={`relative aspect-[16/10] rounded-lg overflow-hidden border cursor-pointer transition-all ${
+                url === b.value ? "border-[#5C3D2E] ring-2 ring-[#5C3D2E]/30" : "border-[#C9A88C]/20 hover:border-[#C9A88C]/50"
+              }`}
+            >
+              <BrandCover seed={`opt-${b.value}`} variant={b.palette} />
+              <span className="absolute bottom-1 left-1 text-[0.6rem] text-white/90 bg-black/35 px-1.5 py-0.5 rounded">
+                {b.label}
+              </span>
+              {url === b.value && (
+                <span className="absolute top-1 right-1 w-5 h-5 rounded-full bg-[#5C3D2E] flex items-center justify-center">
+                  <Check size={12} className="text-white" />
+                </span>
+              )}
+            </button>
+          ))}
+        </div>
+      )}
+
+      {/* 上传自己的图 */}
+      {tab === "upload" && (
         <div
           onClick={() => inputRef.current?.click()}
           onDragOver={(e) => e.preventDefault()}
@@ -72,13 +174,7 @@ export function ImageUploader({ name, defaultValue }: { name: string; defaultVal
         </div>
       )}
 
-      <input
-        ref={inputRef}
-        type="file"
-        accept="image/*"
-        onChange={handleFileChange}
-        className="hidden"
-      />
+      <input ref={inputRef} type="file" accept="image/*" onChange={handleFileChange} className="hidden" />
 
       {error && <p className="mt-2 text-xs text-red-600">{error}</p>}
     </div>

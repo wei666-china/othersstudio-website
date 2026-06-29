@@ -1,6 +1,8 @@
 import Link from "next/link";
 import Navbar from "@/components/Navbar";
+import Footer from "@/components/Footer";
 import FadeIn from "@/components/FadeIn";
+import BrandCover from "@/components/BrandCover";
 import { supabaseAdmin } from "@/lib/supabase";
 
 async function getUpdates() {
@@ -25,14 +27,14 @@ function formatDate(d: string | null) {
 export const dynamic = "force-dynamic";
 
 function TypeBadge({ type }: { type: string }) {
-  const config: Record<string, { label: string; color: string }> = {
-    "app-update": { label: "App 更新", color: "bg-accent-soft text-accent" },
-    photo: { label: "照片", color: "bg-brown-warm/8 text-brown-warm" },
-    thought: { label: "产品感想", color: "bg-brown-light/20 text-brown-mid" },
+  const config: Record<string, { label: string }> = {
+    "app-update": { label: "App 更新" },
+    photo: { label: "照片" },
+    thought: { label: "产品感想" },
   };
-  const { label, color } = config[type] || { label: type, color: "bg-brown-light/20 text-brown-mid" };
+  const { label } = config[type] || { label: type };
   return (
-    <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[0.72rem] font-semibold ${color}`}>
+    <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[0.72rem] font-medium tracking-wide border border-border-strong text-text-mid">
       {label}
     </span>
   );
@@ -112,92 +114,94 @@ export default async function UpdatesPage() {
     <>
       <Navbar />
 
-      <header className="pt-35 pb-15 text-center max-w-[800px] mx-auto px-6">
-        <h1 className="text-[clamp(2.5rem,5vw,3.5rem)] mb-4 tracking-tight">动态</h1>
-        <p className="text-lg text-brown-muted max-w-[520px] mx-auto">
+      <header className="pt-36 pb-14 max-w-[820px] mx-auto px-6 md:px-15">
+        <h1 className="text-[clamp(2.5rem,5.5vw,4rem)] mb-4 tracking-[-0.02em]">动态</h1>
+        <p className="text-lg text-text-muted max-w-[48ch]">
           App 更新记录、产品感想、以及日常的照片和灵感碎片。
         </p>
       </header>
 
-      <section className="max-w-[900px] mx-auto px-6 md:px-15 pb-30">
-        {updates.map((item, i) => (
-          <FadeIn key={i}>
-            <article className="mb-14 pb-14 border-b border-brown-light/12 last:border-b-0 last:mb-0 last:pb-0">
-              <div className="flex items-center gap-3 mb-4">
-                <TypeBadge type={item.type} />
-                <span className="text-xs text-brown-light">{item.date}</span>
-              </div>
-
-              {item.type === "app-update" && item.version && (
-                <div className="inline-flex items-center gap-1.5 px-3.5 py-1.5 bg-brown-deep text-white rounded-full text-xs font-semibold mb-4">
-                  {item.version}
+      <section className="max-w-[820px] mx-auto px-6 md:px-15 pb-28">
+        <div className="relative pl-9 before:content-[''] before:absolute before:left-[5px] before:top-2 before:bottom-2 before:w-px before:bg-gradient-to-b before:from-border-strong before:via-border before:to-transparent">
+          {updates.map((item, i) => (
+            <FadeIn key={i} delay={(i % 4) * 60}>
+              <article className="relative mb-12 last:mb-0 before:content-[''] before:absolute before:-left-[37px] before:top-1.5 before:w-2.5 before:h-2.5 before:rounded-full before:bg-accent before:ring-4 before:ring-bg">
+                <div className="flex items-center gap-3 mb-4">
+                  <TypeBadge type={item.type} />
+                  <span className="text-xs text-text-soft font-mono">{item.date}</span>
+                  {item.type === "app-update" && item.version && (
+                    <span className="inline-flex items-center px-2.5 py-0.5 bg-ink text-on-ink rounded-full text-xs font-semibold font-mono">
+                      {item.version}
+                    </span>
+                  )}
                 </div>
-              )}
 
-              <h2 className="font-serif text-2xl text-brown-deep mb-3 leading-snug">{item.title}</h2>
+                <h2 className="font-serif text-2xl text-text mb-4 leading-snug">{item.title}</h2>
 
-              {item.type === "app-update" && item.changelog?.length > 0 && (
-                <ul className="list-none flex flex-col gap-2.5 mb-5">
-                  {item.changelog.map((change: { text: string; highlight: boolean }, j: number) => (
-                    <li key={j} className="flex items-start gap-2.5 text-sm text-brown-mid leading-relaxed">
-                      <span className={`mt-2 w-1.5 h-1.5 rounded-full flex-shrink-0 ${change.highlight ? "bg-accent" : "bg-brown-light"}`} />
-                      {change.text}
-                    </li>
-                  ))}
-                </ul>
-              )}
+                {item.type === "app-update" && item.changelog?.length > 0 && (
+                  <ul className="list-none flex flex-col gap-2.5 mb-5">
+                    {item.changelog.map((change: { text: string; highlight: boolean }, j: number) => (
+                      <li key={j} className="flex items-start gap-2.5 text-sm text-text-mid leading-relaxed">
+                        <span className={`mt-2 w-1.5 h-1.5 rounded-full flex-shrink-0 ${change.highlight ? "bg-accent" : "bg-text-soft"}`} />
+                        {change.text}
+                      </li>
+                    ))}
+                  </ul>
+                )}
 
-              {item.type === "app-update" && item.why && (
-                <div className="p-5 bg-bg-alt border-l-3 border-brown-light rounded-r-xl mb-5">
-                  <div className="text-xs font-semibold text-brown-warm tracking-wide uppercase mb-2">为什么做这个</div>
-                  <p className="text-sm text-brown-muted leading-relaxed">{item.why}</p>
-                </div>
-              )}
+                {item.type === "app-update" && item.why && (
+                  <div className="p-5 bg-surface border border-border rounded-2xl mb-5">
+                    <div className="text-xs font-semibold text-accent-deep tracking-wide mb-2">为什么做这个</div>
+                    <p className="text-sm text-text-muted leading-relaxed">{item.why}</p>
+                  </div>
+                )}
 
-              {item.type === "photo" && item.photos?.length > 0 && (
-                <div className={`grid gap-3 mb-5 ${item.photos.length === 1 ? "grid-cols-1" : "grid-cols-2"}`}>
-                  {item.photos.map((photo: string, j: number) => {
-                    const isUrl = photo.startsWith("http");
-                    return (
-                      <div key={j} className="aspect-[4/3] bg-gradient-to-br from-surface to-brown-light/40 rounded-xl flex items-center justify-center text-brown-light relative overflow-hidden">
-                        {isUrl ? (
-                          <img src={photo} alt="" className="w-full h-full object-cover" />
-                        ) : (
-                          <>
-                            <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/></svg>
-                            <span className="absolute bottom-3 left-3 px-2.5 py-1 bg-brown-deep/70 backdrop-blur-sm text-white text-[0.7rem] rounded-md">
-                              {photo}
-                            </span>
-                          </>
-                        )}
-                      </div>
-                    );
-                  })}
-                </div>
-              )}
+                {item.type === "photo" && item.photos?.length > 0 && (
+                  <div className={`grid gap-3 mb-5 ${item.photos.length === 1 ? "grid-cols-1" : "grid-cols-2"}`}>
+                    {item.photos.map((photo: string, j: number) => {
+                      const isUrl = photo.startsWith("http");
+                      return (
+                        <div key={j} className="relative aspect-[4/3] rounded-2xl overflow-hidden border border-border">
+                          {isUrl ? (
+                            <>
+                              <img
+                                src={photo}
+                                alt=""
+                                className="absolute inset-0 w-full h-full object-cover"
+                              />
+                              <div className="absolute inset-0 bg-gradient-to-t from-[rgba(41,32,26,0.25)] via-transparent to-transparent mix-blend-multiply" />
+                            </>
+                          ) : (
+                            <BrandCover seed={`photo-${i}-${j}`} label={photo} />
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
 
-              {(item.type === "photo" || item.type === "thought") && item.content && (
-                <p className="text-sm text-brown-muted leading-relaxed whitespace-pre-line">{item.content}</p>
-              )}
+                {(item.type === "photo" || item.type === "thought") && item.content && (
+                  <p className="text-sm text-text-muted leading-relaxed whitespace-pre-line">{item.content}</p>
+                )}
 
-              {item.type === "app-update" && (
-                <Link
-                  href="/#product"
-                  className="inline-flex items-center gap-2 mt-5 px-5 py-2.5 bg-bg-alt border border-brown-light/20 rounded-full no-underline text-brown-deep text-sm font-medium hover:bg-surface hover:translate-x-1 transition-all"
-                >
-                  查看产品详情
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
-                </Link>
-              )}
-            </article>
-          </FadeIn>
-        ))}
+                {item.type === "app-update" && (
+                  <Link
+                    href="/#product"
+                    className="group inline-flex items-center gap-2 mt-5 px-5 py-2.5 bg-surface border border-border rounded-full no-underline text-text text-sm font-medium hover:border-border-strong transition-all duration-300"
+                  >
+                    查看产品详情
+                    <span className="transition-transform duration-300 group-hover:translate-x-0.5">
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+                    </span>
+                  </Link>
+                )}
+              </article>
+            </FadeIn>
+          ))}
+        </div>
       </section>
 
-      <footer className="px-6 md:px-15 py-10 border-t border-brown-light/15 flex flex-col md:flex-row justify-between items-center text-xs text-brown-light gap-3">
-        <span>&copy; 2025 DAY 1 Team</span>
-        <Link href="/" className="text-brown-mid no-underline hover:text-brown-deep transition-colors">← 返回首页</Link>
-      </footer>
+      <Footer />
     </>
   );
 }

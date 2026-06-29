@@ -3,6 +3,32 @@
 import { useState } from "react";
 import { revokeApiKey, type ApiKeyRecord } from "../actions";
 import { useRouter } from "next/navigation";
+import { useLocale } from "@/i18n/LocaleProvider";
+
+const T = {
+  zh: {
+    active: "活跃",
+    usage: "用量",
+    createdAt: "创建于",
+    lastUsed: "最后使用",
+    revoking: "撤销中...",
+    confirmRevoke: "确认撤销",
+    cancel: "取消",
+    revoke: "撤销",
+    dateLocale: "zh-CN",
+  },
+  en: {
+    active: "Active",
+    usage: "Usage",
+    createdAt: "Created",
+    lastUsed: "Last used",
+    revoking: "Revoking...",
+    confirmRevoke: "Confirm revoke",
+    cancel: "Cancel",
+    revoke: "Revoke",
+    dateLocale: "en-US",
+  },
+};
 
 export function KeyList({ keys }: { keys: ApiKeyRecord[] }) {
   return (
@@ -17,6 +43,8 @@ export function KeyList({ keys }: { keys: ApiKeyRecord[] }) {
 }
 
 function KeyRow({ apiKey }: { apiKey: ApiKeyRecord }) {
+  const { locale } = useLocale();
+  const tx = locale === "en" ? T.en : T.zh;
   const [revoking, setRevoking] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
   const router = useRouter();
@@ -42,7 +70,7 @@ function KeyRow({ apiKey }: { apiKey: ApiKeyRecord }) {
           <div className="flex items-center gap-2">
             <p className="text-sm font-medium text-[#3D2B1F]">{apiKey.name}</p>
             <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-green-50 text-green-600">
-              活跃
+              {tx.active}
             </span>
           </div>
           <p className="text-xs text-[#A08060] font-mono mt-1">
@@ -50,19 +78,19 @@ function KeyRow({ apiKey }: { apiKey: ApiKeyRecord }) {
           </p>
           <div className="flex items-center gap-4 mt-2 text-xs text-[#6B4E3D]">
             <span>
-              用量 {apiKey.usage_count}/{apiKey.monthly_limit}
+              {tx.usage} {apiKey.usage_count}/{apiKey.monthly_limit}
             </span>
             <span>
-              创建于{" "}
-              {new Date(apiKey.created_at).toLocaleDateString("zh-CN", {
+              {tx.createdAt}{" "}
+              {new Date(apiKey.created_at).toLocaleDateString(tx.dateLocale, {
                 month: "short",
                 day: "numeric",
               })}
             </span>
             {apiKey.last_used_at && (
               <span>
-                最后使用{" "}
-                {new Date(apiKey.last_used_at).toLocaleDateString("zh-CN", {
+                {tx.lastUsed}{" "}
+                {new Date(apiKey.last_used_at).toLocaleDateString(tx.dateLocale, {
                   month: "short",
                   day: "numeric",
                 })}
@@ -91,13 +119,13 @@ function KeyRow({ apiKey }: { apiKey: ApiKeyRecord }) {
                 disabled={revoking}
                 className="px-3 py-1.5 rounded-lg text-xs font-medium text-white bg-red-500 hover:bg-red-600 disabled:opacity-50 transition-colors cursor-pointer"
               >
-                {revoking ? "撤销中..." : "确认撤销"}
+                {revoking ? tx.revoking : tx.confirmRevoke}
               </button>
               <button
                 onClick={() => setShowConfirm(false)}
                 className="px-3 py-1.5 rounded-lg text-xs text-[#6B4E3D] hover:bg-[#FAF6F1] transition-colors cursor-pointer"
               >
-                取消
+                {tx.cancel}
               </button>
             </div>
           ) : (
@@ -105,7 +133,7 @@ function KeyRow({ apiKey }: { apiKey: ApiKeyRecord }) {
               onClick={() => setShowConfirm(true)}
               className="px-3 py-1.5 rounded-lg text-xs text-[#6B4E3D] hover:text-red-600 hover:bg-red-50 transition-colors cursor-pointer"
             >
-              撤销
+              {tx.revoke}
             </button>
           )}
         </div>

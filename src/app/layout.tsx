@@ -1,20 +1,32 @@
 import type { Metadata } from "next";
-import { Inter, Playfair_Display, JetBrains_Mono } from "next/font/google";
+import { Geist, Inter, Playfair_Display, JetBrains_Mono } from "next/font/google";
 import "./globals.css";
+import { LocaleProvider } from "@/i18n/LocaleProvider";
+import { getLocale } from "@/i18n/server";
+import GuideAssistant from "@/components/GuideAssistant";
+
+const geist = Geist({
+  variable: "--font-geist",
+  subsets: ["latin"],
+  display: "swap",
+});
 
 const inter = Inter({
   variable: "--font-inter",
   subsets: ["latin"],
+  display: "swap",
 });
 
 const playfair = Playfair_Display({
   variable: "--font-playfair",
   subsets: ["latin"],
+  display: "swap",
 });
 
 const jetbrains = JetBrains_Mono({
   variable: "--font-jetbrains",
   subsets: ["latin"],
+  display: "swap",
 });
 
 export const metadata: Metadata = {
@@ -28,17 +40,23 @@ export const metadata: Metadata = {
   },
 };
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  const locale = await getLocale();
   return (
     <html
-      lang="zh-CN"
-      className={`${inter.variable} ${playfair.variable} ${jetbrains.variable}`}
+      lang={locale === "en" ? "en" : "zh-CN"}
+      className={`${geist.variable} ${inter.variable} ${playfair.variable} ${jetbrains.variable}`}
     >
-      <body>{children}</body>
+      <body>
+        <LocaleProvider initialLocale={locale}>
+          {children}
+          <GuideAssistant />
+        </LocaleProvider>
+      </body>
     </html>
   );
 }

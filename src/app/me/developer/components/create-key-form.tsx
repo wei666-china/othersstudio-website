@@ -3,8 +3,54 @@
 import { useState } from "react";
 import { generateApiKey } from "../actions";
 import { useRouter } from "next/navigation";
+import { useLocale } from "@/i18n/LocaleProvider";
+
+const T = {
+  zh: {
+    generated: "Key 已生成",
+    copyNow: "请立即复制保存，此 Key 不会再次显示。",
+    dontSend1: "请勿把 API 码",
+    dontSend2: "发送给任何人",
+    copied: "已复制",
+    copy: "复制",
+    savedClose: "我已保存，关闭此提示",
+    createNew: "创建新 Key",
+    beforeUse: "使用前请知悉",
+    notice1: "API Key 等同于你账号健康数据的访问凭证，请妥善保管。",
+    notice2: "请勿将 Key 分享、提交到代码仓库或发送给任何人。",
+    notice3: "若因个人保管不当导致 Key 泄露，由此产生的后果需自行承担。",
+    notice4: "如怀疑 Key 已泄露，请立即在下方撤销并重新生成。",
+    placeholder: "给这个 Key 起个名字（如：My Cursor Agent）",
+    creating: "生成中...",
+    atLimitBtn: "已达上限",
+    create: "生成 Key",
+    atLimitHint: "已达到 5 个活跃 Key 上限，请先撤销不用的 Key",
+  },
+  en: {
+    generated: "Key generated",
+    copyNow: "Copy and save it now — this key won't be shown again.",
+    dontSend1: "Never share your",
+    dontSend2: "API key with anyone",
+    copied: "Copied",
+    copy: "Copy",
+    savedClose: "I've saved it, close this notice",
+    createNew: "Create a new key",
+    beforeUse: "Before you start",
+    notice1: "An API key grants access to your account's health data — keep it safe.",
+    notice2: "Never share the key, commit it to a repo, or send it to anyone.",
+    notice3: "If a key leaks due to your own mishandling, you're responsible for the consequences.",
+    notice4: "If you suspect a key is compromised, revoke it below and generate a new one immediately.",
+    placeholder: "Name this key (e.g. My Cursor Agent)",
+    creating: "Generating...",
+    atLimitBtn: "Limit reached",
+    create: "Generate key",
+    atLimitHint: "You've reached the limit of 5 active keys — revoke an unused one first",
+  },
+};
 
 export function CreateKeyForm({ activeCount }: { activeCount: number }) {
+  const { locale } = useLocale();
+  const tx = locale === "en" ? T.en : T.zh;
   const [name, setName] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -64,10 +110,10 @@ export function CreateKeyForm({ activeCount }: { activeCount: number }) {
               />
             </svg>
           </div>
-          <h3 className="text-sm font-semibold text-green-800">Key 已生成</h3>
+          <h3 className="text-sm font-semibold text-green-800">{tx.generated}</h3>
         </div>
         <p className="text-xs text-[#6B4E3D] mb-3">
-          请立即复制保存，此 Key 不会再次显示。
+          {tx.copyNow}
         </p>
         <div className="flex items-center gap-2">
           <code className="flex-1 bg-[#FAF6F1] border border-[#C9A88C]/20 rounded-lg px-3 py-2.5 text-xs font-mono text-[#3D2B1F] break-all select-all">
@@ -88,9 +134,9 @@ export function CreateKeyForm({ activeCount }: { activeCount: number }) {
               />
             </svg>
             <span className="text-[11px] font-medium text-red-600 leading-tight">
-              请勿把 API 码
+              {tx.dontSend1}
               <br />
-              发送给任何人
+              {tx.dontSend2}
             </span>
           </div>
           <button
@@ -101,14 +147,14 @@ export function CreateKeyForm({ activeCount }: { activeCount: number }) {
                 : "bg-[#3D2B1F] text-white hover:bg-[#5C3D2E]"
             }`}
           >
-            {copied ? "已复制" : "复制"}
+            {copied ? tx.copied : tx.copy}
           </button>
         </div>
         <button
           onClick={handleDismiss}
           className="mt-3 text-xs text-[#6B4E3D] hover:text-[#3D2B1F] transition-colors cursor-pointer"
         >
-          我已保存，关闭此提示
+          {tx.savedClose}
         </button>
       </div>
     );
@@ -117,7 +163,7 @@ export function CreateKeyForm({ activeCount }: { activeCount: number }) {
   return (
     <form onSubmit={handleCreate}>
       <div className="bg-white rounded-2xl border border-[#C9A88C]/15 p-5 sm:p-6">
-        <h3 className="text-sm font-semibold text-[#3D2B1F] mb-3">创建新 Key</h3>
+        <h3 className="text-sm font-semibold text-[#3D2B1F] mb-3">{tx.createNew}</h3>
 
         <div className="mb-4 rounded-xl bg-[#FBF3EC] border border-[#C9A88C]/30 p-4">
           <div className="flex items-start gap-2.5">
@@ -135,12 +181,12 @@ export function CreateKeyForm({ activeCount }: { activeCount: number }) {
               />
             </svg>
             <div className="text-[12px] leading-relaxed text-[#6B4E3D]">
-              <p className="font-semibold text-[#3D2B1F] mb-1">使用前请知悉</p>
+              <p className="font-semibold text-[#3D2B1F] mb-1">{tx.beforeUse}</p>
               <ul className="space-y-1 list-disc list-inside marker:text-[#A86B3D]">
-                <li>API Key 等同于你账号健康数据的访问凭证，请妥善保管。</li>
-                <li>请勿将 Key 分享、提交到代码仓库或发送给任何人。</li>
-                <li>若因个人保管不当导致 Key 泄露，由此产生的后果需自行承担。</li>
-                <li>如怀疑 Key 已泄露，请立即在下方撤销并重新生成。</li>
+                <li>{tx.notice1}</li>
+                <li>{tx.notice2}</li>
+                <li>{tx.notice3}</li>
+                <li>{tx.notice4}</li>
               </ul>
             </div>
           </div>
@@ -151,7 +197,7 @@ export function CreateKeyForm({ activeCount }: { activeCount: number }) {
             type="text"
             value={name}
             onChange={(e) => setName(e.target.value)}
-            placeholder="给这个 Key 起个名字（如：My Cursor Agent）"
+            placeholder={tx.placeholder}
             maxLength={50}
             disabled={atLimit}
             className="flex-1 px-4 py-2.5 rounded-xl border border-[#C9A88C]/20 bg-[#FAF6F1] text-sm text-[#3D2B1F] placeholder:text-[#A08060] focus:outline-none focus:ring-2 focus:ring-[#5C3D2E]/20 focus:border-[#5C3D2E]/40 disabled:opacity-50 transition-all"
@@ -161,13 +207,13 @@ export function CreateKeyForm({ activeCount }: { activeCount: number }) {
             disabled={loading || !name.trim() || atLimit}
             className="shrink-0 px-5 py-2.5 rounded-xl text-sm font-medium text-white bg-[#3D2B1F] hover:bg-[#5C3D2E] disabled:opacity-50 disabled:cursor-not-allowed transition-all cursor-pointer"
           >
-            {loading ? "生成中..." : atLimit ? "已达上限" : "生成 Key"}
+            {loading ? tx.creating : atLimit ? tx.atLimitBtn : tx.create}
           </button>
         </div>
         {error && <p className="mt-2 text-xs text-red-500">{error}</p>}
         {atLimit && (
           <p className="mt-2 text-xs text-amber-600">
-            已达到 5 个活跃 Key 上限，请先撤销不用的 Key
+            {tx.atLimitHint}
           </p>
         )}
       </div>

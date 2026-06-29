@@ -3,8 +3,27 @@ import type { NextRequest } from "next/server";
 import { createServerClient } from "@supabase/ssr";
 import { verifyToken, COOKIE_NAME } from "@/lib/auth";
 
+// 语言前缀路由：/en 或 /zh 仅用于"分享指定语言链接"。
+// 命中后设置 NEXT_LOCALE cookie，并重写到去掉前缀的干净 URL（URL 不暴露 /en）。
+const LOCALE_PREFIXES = ["en", "zh"] as const;
+
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
+
+  // 语言前缀处理（最前、独立于鉴权逻辑）
+  const seg = pathname.split("/")[1];
+  if ((LOCALE_PREFIXES as readonly string[]).includes(seg)) {
+    const rest = pathname.slice(seg.length + 1) || "/";
+    const url = request.nextUrl.clone();
+    url.pathname = rest;
+    const response = NextResponse.redirect(url);
+    response.cookies.set("NEXT_LOCALE", seg, {
+      path: "/",
+      maxAge: 31536000,
+      sameSite: "lax",
+    });
+    return response;
+  }
 
   // 管理后台：原有密码 + HMAC Cookie 鉴权，保持不变
   if (pathname.startsWith("/admin")) {
@@ -75,5 +94,5 @@ export async function middleware(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/admin/:path*", "/me/:path*"],
+  matcher: ["/admin/:path*", "/me/:path*", "/en/:path*", "/en", "/zh/:path*", "/zh"],
 };

@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { getLocale } from "@/i18n/server";
 
 export const metadata = {
   title: "DAY 1 — API 文档",
@@ -11,35 +12,180 @@ const SKILL_RAW_URL =
 const GUIDE_BASE =
   "https://github.com/wei666-china/day1-health-skill/blob/main/examples";
 
+// 接入指南卡片：工具名保留原样，描述双语
 const AGENT_GUIDES = [
   {
     name: "Cursor",
-    desc: ".cursor/skills/ 目录 + 环境变量",
+    desc: { zh: ".cursor/skills/ 目录 + 环境变量", en: ".cursor/skills/ folder + env variable" },
     file: "cursor-setup.md",
   },
   {
     name: "Claude Code",
-    desc: "CLAUDE.md / .claude/skills/ 接入",
+    desc: { zh: "CLAUDE.md / .claude/skills/ 接入", en: "CLAUDE.md / .claude/skills/ setup" },
     file: "claude-code-setup.md",
   },
   {
     name: "Codex CLI",
-    desc: "AGENTS.md + 环境变量接入",
+    desc: { zh: "AGENTS.md + 环境变量接入", en: "AGENTS.md + env variable setup" },
     file: "codex-setup.md",
   },
   {
     name: "openclaw",
-    desc: "skill 目录 + 环境变量",
+    desc: { zh: "skill 目录 + 环境变量", en: "skill folder + env variable" },
     file: "openclaw-setup.md",
   },
   {
-    name: "其他 Agent",
-    desc: "任何能发 HTTP 的 Agent 通用接入",
+    name: { zh: "其他 Agent", en: "Other agents" },
+    desc: { zh: "任何能发 HTTP 的 Agent 通用接入", en: "Generic setup for any agent that can send HTTP" },
     file: "generic-agent-setup.md",
   },
 ];
 
-export default function DocsPage() {
+// 端点表格行：用途双语，端点名/参数为技术内容不翻
+const ENDPOINT_ROWS = [
+  {
+    path: "/workouts",
+    use: { zh: "每次训练 + 逐动作组数/重量/次数", en: "Each session + sets/weight/reps per exercise" },
+    params: "days(1-90,默认30) limit(1-50,默认20)",
+    paramsEn: "days(1-90, default 30) limit(1-50, default 20)",
+  },
+  {
+    path: "/nutrition",
+    use: { zh: "逐日营养 + 目标对比 + 达标率", en: "Daily nutrition + target comparison + completion rate" },
+    params: "days(1-60,默认14)",
+    paramsEn: "days(1-60, default 14)",
+  },
+  {
+    path: "/body",
+    use: { zh: "体重/体脂时间序列 + 目标计划", en: "Weight/body-fat time series + goal plan" },
+    params: "days(1-365,默认90)",
+    paramsEn: "days(1-365, default 90)",
+  },
+  {
+    path: "/recovery",
+    use: { zh: "每日状态、午间签到、训练前后回顾", en: "Daily status, midday check-in, pre/post-training reviews" },
+    params: "days(1-60,默认14)",
+    paramsEn: "days(1-60, default 14)",
+  },
+  {
+    path: "/insights",
+    use: { zh: "训练频率、容量趋势、连续训练周数 streak", en: "Training frequency, volume trends, weekly training streak" },
+    params: "无",
+    paramsEn: "none",
+  },
+];
+
+// 错误码表格：错误码/HTTP 不翻，说明双语
+const ERROR_ROWS = [
+  { http: "401", code: "missing_or_invalid_key", desc: { zh: "缺少 Authorization header 或格式错误", en: "Missing Authorization header or malformed" } },
+  { http: "401", code: "key_not_found", desc: { zh: "Key 不存在或已被撤销", en: "Key doesn't exist or has been revoked" } },
+  { http: "401", code: "key_expired", desc: { zh: "Key 已过期", en: "Key has expired" } },
+  { http: "429", code: "monthly_limit_exceeded", desc: { zh: "本月配额已用完 (1000 次/月)", en: "Monthly quota used up (1,000 / month)" } },
+  { http: "405", code: "method_not_allowed", desc: { zh: "仅支持 GET 请求", en: "Only GET requests are supported" } },
+  { http: "500", code: "internal_error", desc: { zh: "服务器内部错误", en: "Internal server error" } },
+];
+
+const COPY = {
+  zh: {
+    crumbDocs: "API 文档",
+    subtitle: "让你的 AI Agent 安全地获取你的结构化健康数据",
+    secEndpoints: "端点",
+    overviewNote: "总览端点（一次返回所有维度的摘要，最常用）：",
+    secCoachEndpoints: "私教级端点",
+    coachIntro1: "当需要逐组、逐日的深入分析时，调用以下细分端点。它们与总览端点共用同一鉴权方式、配额和",
+    coachIntro2: "响应结构。",
+    thEndpoint: "端点",
+    thUse: "用途",
+    thParams: "参数",
+    coachComment1: "# 训练明细（近30天，最多20次）",
+    coachComment2: "# 营养明细（近14天）",
+    calibTitle: "口径说明：",
+    calibBody:
+      "总览端点返回的是「窗口内平均值 / 全历史最新值」，明细端点返回的是「时间序列 / 逐日原始记录」，且两者默认天数不同（总览 7 天，明细 14–90 天）。因此明细端点某一天的数值与总览的平均值不一致是正常的，不是矛盾。",
+    calibInsights1: "额外提供",
+    calibInsights2: "（连续训练周数，以最近一次训练所在周为锚点，本周未训练不会清零）。",
+    secAuth: "认证方式",
+    authNote: "在请求头中使用 Bearer Token：",
+    authSafetyTitle: "安全提示：",
+    authSafetyBody:
+      "API Key 仅能访问你自己的数据，无法获取其他用户的信息。Key 使用 SHA-256 单向哈希存储，即使数据库泄露也无法反推出你的 Key。",
+    secQuery: "查询参数（health-snapshot）",
+    thType: "类型",
+    thDefault: "默认",
+    thDesc: "说明",
+    daysDesc: "回溯天数 (1-30)",
+    queryNote: "私教级端点（/workouts、/nutrition 等）的参数见上方「私教级端点」表格。",
+    secResponse: "响应示例",
+    secErrors: "错误码",
+    thError: "错误码",
+    secQuota: "配额限制",
+    quotaMonthly: "月请求上限",
+    quotaMonthlyVal: "1,000 次",
+    quotaKeys: "最大活跃 Key",
+    quotaKeysVal: "5 个",
+    secSkill: "AI Skill 安装",
+    getSkillTitle: "获取 Skill 文件",
+    getSkillNote: "Skill 托管在 GitHub。你可以直接下载文件，或把 raw 链接喂给 AI，让它自动读取。",
+    downloadSkill: "下载 SKILL.md",
+    viewOnGithub: "在 GitHub 查看",
+    rawLinkNote: "给 AI 用的 raw 链接（直接读取）：",
+    guidesNote: "按你使用的 Agent 选择对应的接入指南。所有指南都托管在 GitHub，点击即可查看分步说明：",
+    secCurl: "cURL 测试",
+    backToKeys: "返回 Key 管理",
+  },
+  en: {
+    crumbDocs: "API docs",
+    subtitle: "Let your AI agent securely access your structured health data",
+    secEndpoints: "Endpoints",
+    overviewNote: "Overview endpoint (returns a summary of all dimensions in one call — the most common):",
+    secCoachEndpoints: "Coach-level endpoints",
+    coachIntro1: "When you need set-by-set or day-by-day analysis, call the endpoints below. They share the same auth, quota and",
+    coachIntro2: "response structure as the overview endpoint.",
+    thEndpoint: "Endpoint",
+    thUse: "Purpose",
+    thParams: "Parameters",
+    coachComment1: "# Workout details (last 30 days, up to 20)",
+    coachComment2: "# Nutrition details (last 14 days)",
+    calibTitle: "About the numbers:",
+    calibBody:
+      "The overview endpoint returns “averages within the window / latest all-time values”, while detail endpoints return “time series / raw daily records”, and their default ranges differ (overview 7 days, details 14–90 days). So a single day's value from a detail endpoint differing from the overview's average is expected, not a contradiction.",
+    calibInsights1: "additionally provides",
+    calibInsights2: "(consecutive training weeks, anchored to the week of your most recent workout; not training this week won't reset it).",
+    secAuth: "Authentication",
+    authNote: "Use a Bearer token in the request header:",
+    authSafetyTitle: "Security note:",
+    authSafetyBody:
+      "An API key can only access your own data, never other users'. Keys are stored as one-way SHA-256 hashes, so even a database leak can't reveal your key.",
+    secQuery: "Query parameters (health-snapshot)",
+    thType: "Type",
+    thDefault: "Default",
+    thDesc: "Description",
+    daysDesc: "Days to look back (1-30)",
+    queryNote: "For coach-level endpoints (/workouts, /nutrition, etc.), see the “Coach-level endpoints” table above.",
+    secResponse: "Response example",
+    secErrors: "Error codes",
+    thError: "Error code",
+    secQuota: "Rate limits",
+    quotaMonthly: "Monthly request limit",
+    quotaMonthlyVal: "1,000",
+    quotaKeys: "Max active keys",
+    quotaKeysVal: "5",
+    secSkill: "AI Skill installation",
+    getSkillTitle: "Get the Skill file",
+    getSkillNote: "The Skill is hosted on GitHub. Download the file directly, or feed the raw link to your AI and let it read it automatically.",
+    downloadSkill: "Download SKILL.md",
+    viewOnGithub: "View on GitHub",
+    rawLinkNote: "Raw link for your AI (reads directly):",
+    guidesNote: "Pick the setup guide for the agent you use. All guides are hosted on GitHub — click to see step-by-step instructions:",
+    secCurl: "cURL test",
+    backToKeys: "Back to key management",
+  },
+};
+
+export default async function DocsPage() {
+  const locale = await getLocale();
+  const isEn = locale === "en";
+  const c = isEn ? COPY.en : COPY.zh;
   return (
     <div className="max-w-4xl mx-auto px-4 sm:px-6 py-8">
       <div className="flex items-center gap-2 text-xs text-[#6B4E3D] mb-6">
@@ -62,116 +208,95 @@ export default function DocsPage() {
             d="M9 5l7 7-7 7"
           />
         </svg>
-        <span className="text-[#3D2B1F]">API 文档</span>
+        <span className="text-[#3D2B1F]">{c.crumbDocs}</span>
       </div>
 
       <h1 className="text-2xl font-semibold text-[#3D2B1F] mb-2">
         Day 1 Health API
       </h1>
       <p className="text-sm text-[#6B4E3D] mb-8">
-        让你的 AI Agent 安全地获取你的结构化健康数据
+        {c.subtitle}
       </p>
 
-      <Section title="端点">
+      <Section title={c.secEndpoints}>
         <p className="text-sm text-[#6B4E3D] mb-3">
-          总览端点（一次返回所有维度的摘要，最常用）：
+          {c.overviewNote}
         </p>
         <CodeBlock>
           {`GET https://ywliqhbjyiydlnahvwal.supabase.co/functions/v1/health-snapshot`}
         </CodeBlock>
       </Section>
 
-      <Section title="私教级端点">
+      <Section title={c.secCoachEndpoints}>
         <p className="text-sm text-[#6B4E3D] mb-3">
-          当需要逐组、逐日的深入分析时，调用以下细分端点。它们与总览端点共用同一鉴权方式、配额和{" "}
+          {c.coachIntro1}{" "}
           <code className="font-mono text-xs">{`{ status, data, meta }`}</code>{" "}
-          响应结构。
+          {c.coachIntro2}
         </p>
         <div className="bg-white rounded-xl border border-[#C9A88C]/15 overflow-hidden">
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-[#C9A88C]/10 text-left">
-                <th className="px-4 py-3 font-medium text-[#3D2B1F]">端点</th>
-                <th className="px-4 py-3 font-medium text-[#3D2B1F]">用途</th>
-                <th className="px-4 py-3 font-medium text-[#3D2B1F]">参数</th>
+                <th className="px-4 py-3 font-medium text-[#3D2B1F]">{c.thEndpoint}</th>
+                <th className="px-4 py-3 font-medium text-[#3D2B1F]">{c.thUse}</th>
+                <th className="px-4 py-3 font-medium text-[#3D2B1F]">{c.thParams}</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-[#C9A88C]/10 text-[#6B4E3D]">
-              <tr>
-                <td className="px-4 py-3 font-mono text-xs text-[#5C3D2E]">/workouts</td>
-                <td className="px-4 py-3">每次训练 + 逐动作组数/重量/次数</td>
-                <td className="px-4 py-3 font-mono text-[11px]">days(1-90,默认30) limit(1-50,默认20)</td>
-              </tr>
-              <tr>
-                <td className="px-4 py-3 font-mono text-xs text-[#5C3D2E]">/nutrition</td>
-                <td className="px-4 py-3">逐日营养 + 目标对比 + 达标率</td>
-                <td className="px-4 py-3 font-mono text-[11px]">days(1-60,默认14)</td>
-              </tr>
-              <tr>
-                <td className="px-4 py-3 font-mono text-xs text-[#5C3D2E]">/body</td>
-                <td className="px-4 py-3">体重/体脂时间序列 + 目标计划</td>
-                <td className="px-4 py-3 font-mono text-[11px]">days(1-365,默认90)</td>
-              </tr>
-              <tr>
-                <td className="px-4 py-3 font-mono text-xs text-[#5C3D2E]">/recovery</td>
-                <td className="px-4 py-3">每日状态、午间签到、训练前后回顾</td>
-                <td className="px-4 py-3 font-mono text-[11px]">days(1-60,默认14)</td>
-              </tr>
-              <tr>
-                <td className="px-4 py-3 font-mono text-xs text-[#5C3D2E]">/insights</td>
-                <td className="px-4 py-3">训练频率、容量趋势、连续训练周数 streak</td>
-                <td className="px-4 py-3 font-mono text-[11px]">无</td>
-              </tr>
+              {ENDPOINT_ROWS.map((row) => (
+                <tr key={row.path}>
+                  <td className="px-4 py-3 font-mono text-xs text-[#5C3D2E]">{row.path}</td>
+                  <td className="px-4 py-3">{isEn ? row.use.en : row.use.zh}</td>
+                  <td className="px-4 py-3 font-mono text-[11px]">{isEn ? row.paramsEn : row.params}</td>
+                </tr>
+              ))}
             </tbody>
           </table>
         </div>
         <div className="mt-3">
           <CodeBlock language="bash">
-            {`# 训练明细（近30天，最多20次）
+            {`${c.coachComment1}
 curl "https://ywliqhbjyiydlnahvwal.supabase.co/functions/v1/workouts?days=30&limit=20" \\
-  -H "Authorization: Bearer d1_sk_你的key"
+  -H "Authorization: Bearer d1_sk_${isEn ? "your_key" : "你的key"}"
 
-# 营养明细（近14天）
+${c.coachComment2}
 curl "https://ywliqhbjyiydlnahvwal.supabase.co/functions/v1/nutrition?days=14" \\
-  -H "Authorization: Bearer d1_sk_你的key"`}
+  -H "Authorization: Bearer d1_sk_${isEn ? "your_key" : "你的key"}"`}
           </CodeBlock>
         </div>
         <div className="mt-3 p-3 rounded-xl bg-[#FBF3EC] border border-[#C9A88C]/30">
           <p className="text-xs text-[#6B4E3D] leading-relaxed">
-            <span className="font-semibold text-[#3D2B1F]">口径说明：</span>{" "}
-            总览端点返回的是「窗口内平均值 / 全历史最新值」，明细端点返回的是「时间序列 / 逐日原始记录」，且两者默认天数不同（总览 7 天，明细 14–90 天）。
-            因此明细端点某一天的数值与总览的平均值不一致是正常的，不是矛盾。
-            <code className="font-mono text-[11px] mx-1">/insights</code> 额外提供{" "}
-            <code className="font-mono text-[11px]">consecutive_week_streak</code>（连续训练周数，以最近一次训练所在周为锚点，本周未训练不会清零）。
+            <span className="font-semibold text-[#3D2B1F]">{c.calibTitle}</span>{" "}
+            {c.calibBody}
+            <code className="font-mono text-[11px] mx-1">/insights</code> {c.calibInsights1}{" "}
+            <code className="font-mono text-[11px]">consecutive_week_streak</code>{c.calibInsights2}
           </p>
         </div>
       </Section>
 
-      <Section title="认证方式">
+      <Section title={c.secAuth}>
         <p className="text-sm text-[#6B4E3D] mb-3">
-          在请求头中使用 Bearer Token：
+          {c.authNote}
         </p>
         <CodeBlock>
           {`Authorization: Bearer d1_sk_your_api_key_here`}
         </CodeBlock>
         <div className="mt-3 p-3 rounded-xl bg-amber-50/80 border border-amber-100">
           <p className="text-xs text-amber-800">
-            <span className="font-semibold">安全提示：</span> API Key
-            仅能访问你自己的数据，无法获取其他用户的信息。Key 使用 SHA-256
-            单向哈希存储，即使数据库泄露也无法反推出你的 Key。
+            <span className="font-semibold">{c.authSafetyTitle}</span> {c.authSafetyBody}
           </p>
         </div>
       </Section>
 
-      <Section title="查询参数（health-snapshot）">
+      <Section title={c.secQuery}>
         <div className="bg-white rounded-xl border border-[#C9A88C]/15 overflow-hidden">
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-[#C9A88C]/10 text-left">
-                <th className="px-4 py-3 font-medium text-[#3D2B1F]">参数</th>
-                <th className="px-4 py-3 font-medium text-[#3D2B1F]">类型</th>
-                <th className="px-4 py-3 font-medium text-[#3D2B1F]">默认</th>
-                <th className="px-4 py-3 font-medium text-[#3D2B1F]">说明</th>
+                <th className="px-4 py-3 font-medium text-[#3D2B1F]">{c.thParams}</th>
+                <th className="px-4 py-3 font-medium text-[#3D2B1F]">{c.thType}</th>
+                <th className="px-4 py-3 font-medium text-[#3D2B1F]">{c.thDefault}</th>
+                <th className="px-4 py-3 font-medium text-[#3D2B1F]">{c.thDesc}</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-[#C9A88C]/10">
@@ -181,17 +306,17 @@ curl "https://ywliqhbjyiydlnahvwal.supabase.co/functions/v1/nutrition?days=14" \
                 </td>
                 <td className="px-4 py-3 text-[#6B4E3D]">integer</td>
                 <td className="px-4 py-3 text-[#6B4E3D]">7</td>
-                <td className="px-4 py-3 text-[#6B4E3D]">回溯天数 (1-30)</td>
+                <td className="px-4 py-3 text-[#6B4E3D]">{c.daysDesc}</td>
               </tr>
             </tbody>
           </table>
         </div>
         <p className="text-xs text-[#6B4E3D] mt-2">
-          私教级端点（/workouts、/nutrition 等）的参数见上方「私教级端点」表格。
+          {c.queryNote}
         </p>
       </Section>
 
-      <Section title="响应示例">
+      <Section title={c.secResponse}>
         <CodeBlock language="json">
           {`{
   "status": "ok",
@@ -242,78 +367,49 @@ curl "https://ywliqhbjyiydlnahvwal.supabase.co/functions/v1/nutrition?days=14" \
         </CodeBlock>
       </Section>
 
-      <Section title="错误码">
+      <Section title={c.secErrors}>
         <div className="bg-white rounded-xl border border-[#C9A88C]/15 overflow-hidden">
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-[#C9A88C]/10 text-left">
                 <th className="px-4 py-3 font-medium text-[#3D2B1F]">HTTP</th>
-                <th className="px-4 py-3 font-medium text-[#3D2B1F]">错误码</th>
-                <th className="px-4 py-3 font-medium text-[#3D2B1F]">说明</th>
+                <th className="px-4 py-3 font-medium text-[#3D2B1F]">{c.thError}</th>
+                <th className="px-4 py-3 font-medium text-[#3D2B1F]">{c.thDesc}</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-[#C9A88C]/10 text-[#6B4E3D]">
-              <tr>
-                <td className="px-4 py-3 font-mono text-xs">401</td>
-                <td className="px-4 py-3 font-mono text-xs">
-                  missing_or_invalid_key
-                </td>
-                <td className="px-4 py-3">缺少 Authorization header 或格式错误</td>
-              </tr>
-              <tr>
-                <td className="px-4 py-3 font-mono text-xs">401</td>
-                <td className="px-4 py-3 font-mono text-xs">key_not_found</td>
-                <td className="px-4 py-3">Key 不存在或已被撤销</td>
-              </tr>
-              <tr>
-                <td className="px-4 py-3 font-mono text-xs">401</td>
-                <td className="px-4 py-3 font-mono text-xs">key_expired</td>
-                <td className="px-4 py-3">Key 已过期</td>
-              </tr>
-              <tr>
-                <td className="px-4 py-3 font-mono text-xs">429</td>
-                <td className="px-4 py-3 font-mono text-xs">
-                  monthly_limit_exceeded
-                </td>
-                <td className="px-4 py-3">本月配额已用完 (1000 次/月)</td>
-              </tr>
-              <tr>
-                <td className="px-4 py-3 font-mono text-xs">405</td>
-                <td className="px-4 py-3 font-mono text-xs">
-                  method_not_allowed
-                </td>
-                <td className="px-4 py-3">仅支持 GET 请求</td>
-              </tr>
-              <tr>
-                <td className="px-4 py-3 font-mono text-xs">500</td>
-                <td className="px-4 py-3 font-mono text-xs">internal_error</td>
-                <td className="px-4 py-3">服务器内部错误</td>
-              </tr>
+              {ERROR_ROWS.map((row) => (
+                <tr key={row.code}>
+                  <td className="px-4 py-3 font-mono text-xs">{row.http}</td>
+                  <td className="px-4 py-3 font-mono text-xs">{row.code}</td>
+                  <td className="px-4 py-3">{isEn ? row.desc.en : row.desc.zh}</td>
+                </tr>
+              ))}
             </tbody>
           </table>
         </div>
       </Section>
 
-      <Section title="配额限制">
+      <Section title={c.secQuota}>
         <div className="grid sm:grid-cols-2 gap-4">
           <div className="bg-white rounded-xl border border-[#C9A88C]/15 p-4">
-            <p className="text-xs text-[#6B4E3D] mb-1">月请求上限</p>
-            <p className="text-xl font-semibold text-[#3D2B1F]">1,000 次</p>
+            <p className="text-xs text-[#6B4E3D] mb-1">{c.quotaMonthly}</p>
+            <p className="text-xl font-semibold text-[#3D2B1F]">{c.quotaMonthlyVal}</p>
           </div>
           <div className="bg-white rounded-xl border border-[#C9A88C]/15 p-4">
-            <p className="text-xs text-[#6B4E3D] mb-1">最大活跃 Key</p>
-            <p className="text-xl font-semibold text-[#3D2B1F]">5 个</p>
+            <p className="text-xs text-[#6B4E3D] mb-1">{c.quotaKeys}</p>
+            <p className="text-xl font-semibold text-[#3D2B1F]">{c.quotaKeysVal}</p>
           </div>
         </div>
       </Section>
 
-      <Section title="AI Skill 安装">
+      <Section title={c.secSkill}>
         <div className="bg-white rounded-xl border border-[#C9A88C]/15 p-5 mb-4">
           <h4 className="text-sm font-semibold text-[#3D2B1F] mb-1">
-            获取 Skill 文件
+            {c.getSkillTitle}
           </h4>
           <p className="text-xs text-[#6B4E3D] mb-4">
-            Skill 托管在 GitHub。你可以直接下载文件，或把 raw 链接喂给 AI，让它自动读取。
+            {c.getSkillNote}
           </p>
           <div className="flex flex-col sm:flex-row gap-3">
             <a
@@ -325,7 +421,7 @@ curl "https://ywliqhbjyiydlnahvwal.supabase.co/functions/v1/nutrition?days=14" \
               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
               </svg>
-              下载 SKILL.md
+              {c.downloadSkill}
             </a>
             <a
               href={SKILL_REPO_URL}
@@ -336,18 +432,18 @@ curl "https://ywliqhbjyiydlnahvwal.supabase.co/functions/v1/nutrition?days=14" \
               <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
                 <path d="M12 2C6.48 2 2 6.48 2 12c0 4.42 2.87 8.17 6.84 9.5.5.09.66-.22.66-.48v-1.7c-2.78.6-3.37-1.34-3.37-1.34-.46-1.16-1.11-1.47-1.11-1.47-.91-.62.07-.6.07-.6 1 .07 1.53 1.03 1.53 1.03.89 1.52 2.34 1.08 2.91.83.09-.65.35-1.09.63-1.34-2.22-.25-4.55-1.11-4.55-4.94 0-1.09.39-1.98 1.03-2.68-.1-.25-.45-1.27.1-2.65 0 0 .84-.27 2.75 1.02.8-.22 1.65-.33 2.5-.34.85 0 1.7.12 2.5.34 1.91-1.29 2.75-1.02 2.75-1.02.55 1.38.2 2.4.1 2.65.64.7 1.03 1.59 1.03 2.68 0 3.84-2.34 4.69-4.57 4.94.36.31.68.92.68 1.85v2.74c0 .27.16.58.67.48A10.02 10.02 0 0022 12c0-5.52-4.48-10-10-10z" />
               </svg>
-              在 GitHub 查看
+              {c.viewOnGithub}
             </a>
           </div>
           <div className="mt-4 pt-4 border-t border-[#C9A88C]/15">
-            <p className="text-xs text-[#6B4E3D] mb-1.5">给 AI 用的 raw 链接（直接读取）：</p>
+            <p className="text-xs text-[#6B4E3D] mb-1.5">{c.rawLinkNote}</p>
             <code className="block bg-[#FAF6F1] border border-[#C9A88C]/20 rounded-lg px-3 py-2 text-[11px] font-mono text-[#3D2B1F] break-all select-all">
               {SKILL_RAW_URL}
             </code>
           </div>
         </div>
         <p className="text-xs text-[#6B4E3D] mb-3">
-          按你使用的 Agent 选择对应的接入指南。所有指南都托管在 GitHub，点击即可查看分步说明：
+          {c.guidesNote}
         </p>
         <div className="grid sm:grid-cols-2 gap-3">
           {AGENT_GUIDES.map((g) => (
@@ -371,8 +467,10 @@ curl "https://ywliqhbjyiydlnahvwal.supabase.co/functions/v1/nutrition?days=14" \
                 </svg>
               </div>
               <div className="min-w-0 flex-1">
-                <p className="text-sm font-semibold text-[#3D2B1F]">{g.name}</p>
-                <p className="text-xs text-[#6B4E3D] mt-0.5 truncate">{g.desc}</p>
+                <p className="text-sm font-semibold text-[#3D2B1F]">
+                  {typeof g.name === "string" ? g.name : isEn ? g.name.en : g.name.zh}
+                </p>
+                <p className="text-xs text-[#6B4E3D] mt-0.5 truncate">{isEn ? g.desc.en : g.desc.zh}</p>
               </div>
               <svg
                 className="shrink-0 w-4 h-4 text-[#A08060] group-hover:text-[#3D2B1F] transition-colors"
@@ -387,10 +485,10 @@ curl "https://ywliqhbjyiydlnahvwal.supabase.co/functions/v1/nutrition?days=14" \
         </div>
       </Section>
 
-      <Section title="cURL 测试">
+      <Section title={c.secCurl}>
         <CodeBlock language="bash">
           {`curl -s "https://ywliqhbjyiydlnahvwal.supabase.co/functions/v1/health-snapshot?days=7" \\
-  -H "Authorization: Bearer d1_sk_你的key" | python3 -m json.tool`}
+  -H "Authorization: Bearer d1_sk_${isEn ? "your_key" : "你的key"}" | python3 -m json.tool`}
         </CodeBlock>
       </Section>
 
@@ -412,7 +510,7 @@ curl "https://ywliqhbjyiydlnahvwal.supabase.co/functions/v1/nutrition?days=14" \
               d="M9 5l7 7-7 7"
             />
           </svg>
-          返回 Key 管理
+          {c.backToKeys}
         </Link>
       </div>
     </div>

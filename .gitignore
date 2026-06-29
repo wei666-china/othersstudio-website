@@ -16,6 +16,8 @@
 # next.js
 /.next/
 /out/
+.open-next/
+.wrangler/
 
 # production
 /build
@@ -23,6 +25,9 @@
 # misc
 .DS_Store
 *.pem
+
+# 截图工具临时目录(含 Chrome 配置/套接字)，会让 Turbopack/Tailwind 扫描崩溃
+.shot-tmp/
 
 # debug
 npm-debug.log*

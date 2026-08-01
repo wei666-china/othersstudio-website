@@ -42,10 +42,10 @@ export default function Navbar() {
             <li key={link.href}>
               <Link
                 href={link.href}
-                className={`no-underline text-sm font-medium tracking-wide transition-colors relative after:content-[''] after:absolute after:bottom-[-5px] after:left-0 after:h-[1.5px] after:bg-accent after:transition-all after:duration-300 ${
+                className={`no-underline text-sm font-medium tracking-wide transition-colors relative after:content-[''] after:absolute after:bottom-[-5px] after:left-0 after:h-[1.5px] after:w-full after:bg-accent after:origin-left after:transition-transform after:duration-300 ${
                   pathname === link.href
-                    ? "text-text font-semibold after:w-full"
-                    : "text-text-mid hover:text-text after:w-0 hover:after:w-full"
+                    ? "text-text font-semibold after:scale-x-100"
+                    : "text-text-mid hover:text-text after:scale-x-0 hover:after:scale-x-100"
                 }`}
               >
                 {link.label}

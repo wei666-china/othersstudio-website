@@ -14,14 +14,11 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useLocale } from "@/i18n/LocaleProvider";
 import Reveal from "@/components/Reveal";
+import { usePrefersReducedMotion } from "@/lib/usePrefersReducedMotion";
 
 type Lang = "zh" | "en";
 
-function prefersReducedMotion(): boolean {
-  if (typeof window === "undefined" || !window.matchMedia) return false;
-  return window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-}
-
+// 持续跟踪进出视口（不能只触发一次：离开视口要暂停循环，否则整页永不空闲）
 function useInView<T extends HTMLElement>(threshold = 0.4) {
   const ref = useRef<T>(null);
   const [inView, setInView] = useState(false);
@@ -29,12 +26,7 @@ function useInView<T extends HTMLElement>(threshold = 0.4) {
     const node = ref.current;
     if (!node) return;
     const ob = new IntersectionObserver(
-      ([entry]) => {
-        if (entry.isIntersecting) {
-          setInView(true);
-          ob.disconnect();
-        }
-      },
+      ([entry]) => setInView(entry.isIntersecting),
       { threshold, rootMargin: "0px 0px -40px 0px" }
     );
     ob.observe(node);
@@ -123,8 +115,7 @@ export default function CoachTimingDemo() {
   const c = COPY[lang];
 
   const { ref, inView } = useInView<HTMLDivElement>(0.4);
-  const [reduced, setReduced] = useState(false);
-  useEffect(() => setReduced(prefersReducedMotion()), []);
+  const reduced = usePrefersReducedMotion();
 
   // 初始停在第一个组间休息（idx=1）：静态/SSR 帧直接展示 AI 教练在说话——最能代表功能
   const [idx, setIdx] = useState(1);
@@ -339,10 +330,10 @@ export default function CoachTimingDemo() {
                     </div>
                     <div className="h-1 w-full rounded-full bg-border overflow-hidden">
                       <div
-                        className="h-full rounded-full bg-accent/45"
+                        className="h-full w-full rounded-full bg-accent/45 origin-left"
                         style={{
-                          width: barRun ? "0%" : "100%",
-                          transition: barRun ? `width ${REST_MS}ms linear` : "none",
+                          transform: barRun ? "scaleX(0)" : "scaleX(1)",
+                          transition: barRun ? `transform ${REST_MS}ms linear` : "none",
                         }}
                       />
                     </div>

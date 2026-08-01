@@ -13,6 +13,7 @@
 import Image from "next/image";
 import { useEffect, useRef, useState } from "react";
 import { useLocale } from "@/i18n/LocaleProvider";
+import { usePrefersReducedMotion } from "@/lib/usePrefersReducedMotion";
 
 type Lang = "zh" | "en";
 
@@ -173,6 +174,7 @@ function BodyFace({
   selected,
   onSelect,
   isMobile,
+  pulsing,
 }: {
   face: MuscleFace;
   src: string;
@@ -183,12 +185,16 @@ function BodyFace({
   selected: Muscle | null;
   onSelect: (id: string) => void;
   isMobile: boolean;
+  pulsing: boolean;
 }) {
   const isBack = face === "back";
   const faceShown = isBack ? flipped : !flipped;
   const selectedHere = selected && selected.face === face ? selected : null;
   const focusScale = selectedHere ? selectedHere.scale * (isMobile ? 0.78 : 1) : 1;
   const muscles = MUSCLES.filter((m) => m.face === face);
+  // 复位（selected→null）时 origin 保持在上次对焦点，缩小动画围绕原肌群进行，不跳锚点
+  const lastOrigin = useRef("center center");
+  if (selectedHere) lastOrigin.current = `${selectedHere.pos.x}% ${selectedHere.pos.y}%`;
   const alt = isBack
     ? lang === "en"
       ? "Muscle map, back view"
@@ -211,7 +217,7 @@ function BodyFace({
       <div
         className="absolute inset-0"
         style={{
-          transformOrigin: selectedHere ? `${selectedHere.pos.x}% ${selectedHere.pos.y}%` : "center center",
+          transformOrigin: lastOrigin.current,
           transform: `scale(${focusScale})`,
           transition: reduced ? "none" : `transform var(--dur-base) var(--ease-out-soft)`,
         }}
@@ -284,7 +290,7 @@ function BodyFace({
             className="absolute z-10 grid place-items-center rounded-full"
             style={{ left: `${m.pos.x}%`, top: `${m.pos.y}%`, width: 46, height: 46, transform: "translate(-50%, -50%)" }}
           >
-            <span className="block w-3 h-3 rounded-full bg-accent ring-4 ring-bg animate-pulse motion-reduce:animate-none" />
+            <span className={`block w-3 h-3 rounded-full bg-accent ring-4 ring-bg ${pulsing ? "animate-pulse motion-reduce:animate-none" : ""}`} />
           </button>
         ))}
     </div>
@@ -355,12 +361,23 @@ function MuscleCard({ muscle, lang, reduced }: { muscle: Muscle; lang: Lang; red
 // ── 交互人体（翻转 + 对焦 + 高亮 + 标注卡） ──────────────────────────
 
 function InteractiveBody({ inView, lang }: { inView: boolean; lang: Lang }) {
-  const reduced = prefersReducedMotion();
+  const reduced = usePrefersReducedMotion();
   const isMobile = useIsMobile();
   const [flipped, setFlipped] = useState(false);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const selected = MUSCLES.find((m) => m.id === selectedId) ?? null;
   const t = TEXT[lang];
+
+  // 持续跟踪可见性：滚出视口时停掉热点脉冲，让版块能真正空闲
+  const rootRef = useRef<HTMLDivElement>(null);
+  const [visibleNow, setVisibleNow] = useState(false);
+  useEffect(() => {
+    const node = rootRef.current;
+    if (!node) return;
+    const ob = new IntersectionObserver(([entry]) => setVisibleNow(entry.isIntersecting));
+    ob.observe(node);
+    return () => ob.disconnect();
+  }, []);
 
   function flip() {
     setSelectedId(null);
@@ -371,11 +388,11 @@ function InteractiveBody({ inView, lang }: { inView: boolean; lang: Lang }) {
   }
 
   return (
-    <div className="relative w-full max-w-[480px] mx-auto select-none">
+    <div ref={rootRef} className="relative w-full max-w-[480px] mx-auto select-none">
       <div className="relative w-full aspect-[800/1024] overflow-hidden rounded-2xl">
         {/* 正 / 背面叠放，淡入淡出切换（不用 3D 镜像翻转，保证两面都居中、点位精准） */}
-        <BodyFace face="front" src="/anatomy/body-glow-front-tight.png" flipped={flipped} inView={inView} lang={lang} reduced={reduced} selected={selected} onSelect={setSelectedId} isMobile={isMobile} />
-        <BodyFace face="back" src="/anatomy/body-glow-tight.png" flipped={flipped} inView={inView} lang={lang} reduced={reduced} selected={selected} onSelect={setSelectedId} isMobile={isMobile} />
+        <BodyFace face="front" src="/anatomy/body-glow-front-tight.png" flipped={flipped} inView={inView} lang={lang} reduced={reduced} selected={selected} onSelect={setSelectedId} isMobile={isMobile} pulsing={visibleNow} />
+        <BodyFace face="back" src="/anatomy/body-glow-tight.png" flipped={flipped} inView={inView} lang={lang} reduced={reduced} selected={selected} onSelect={setSelectedId} isMobile={isMobile} pulsing={visibleNow} />
 
         {/* 复位点击层：仅选中时渲染，避免空覆盖层拦截触摸 */}
         {selected && (
@@ -424,7 +441,7 @@ function InteractiveBody({ inView, lang }: { inView: boolean; lang: Lang }) {
 
 function FeatureRow({ reverse, lang }: { reverse: boolean; lang: Lang }) {
   const { ref, inView } = useInView<HTMLDivElement>(0.2);
-  const reduced = prefersReducedMotion();
+  const reduced = usePrefersReducedMotion();
 
   const rise = (i: number) => ({
     opacity: inView ? 1 : 0,

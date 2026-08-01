@@ -14,22 +14,31 @@
  */
 
 import { useEffect, useRef, useState } from "react";
+import { usePrefersReducedMotion } from "@/lib/usePrefersReducedMotion";
 
 // App 的渐变色（取自 Logo3DView.makeGradientImage）：橙 → 粉红
 const GRAD_FROM = "#FF7326"; // rgb(255,115,38)
 const GRAD_TO = "#F24059"; // rgb(242,64,89)
-
-function prefersReducedMotion(): boolean {
-  if (typeof window === "undefined" || !window.matchMedia) return false;
-  return window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-}
 
 export default function Logo3D({ className = "" }: { className?: string }) {
   const hostRef = useRef<HTMLDivElement>(null);
   const mvRef = useRef<HTMLElement>(null); // <model-viewer> 元素
   const [ready, setReady] = useState(false); // model-viewer 脚本已加载
   const [loaded, setLoaded] = useState(false); // 模型已渲染完成
-  const reduced = typeof window !== "undefined" && prefersReducedMotion();
+  const [visible, setVisible] = useState(false); // 当前是否在视口内（离开即停摆动）
+  const reduced = usePrefersReducedMotion();
+
+  // 持续跟踪可见性：滚出视口时暂停 rAF 摆动，不让 WebGL 白白烧帧
+  useEffect(() => {
+    const node = hostRef.current;
+    if (!node) return;
+    const ob = new IntersectionObserver(
+      ([entry]) => setVisible(entry.isIntersecting),
+      { rootMargin: "80px" }
+    );
+    ob.observe(node);
+    return () => ob.disconnect();
+  }, []);
 
   // 进入视口后再动态加载 model-viewer 脚本（避免拖慢首屏）
   useEffect(() => {
@@ -85,14 +94,17 @@ export default function Logo3D({ className = "" }: { className?: string }) {
   // 正面小幅左右摆动（替代整圈自转）：用 rAF 缓慢改变相机水平角，phi 固定正面，
   // 所以永远不会转到背面露出镜像字。用户拖拽时暂停，松手后平滑续上。
   // reduced-motion 下整个效果不启用 → 静止正面。
+  const lastTheta = useRef(180); // 记住暂停时的角度，回到视口从原位续摆
   useEffect(() => {
-    if (!ready || reduced) return;
+    if (!ready || reduced || !visible) return;
     const el = mvRef.current as (HTMLElement & { cameraOrbit?: string }) | null;
     if (!el) return;
 
     const AMP = 20; // 摆动幅度：正面 ±20°
     const PERIOD = 8000; // 一个来回约 8s（克制、缓慢）
-    const t0 = performance.now();
+    // 从上次角度反推相位，避免恢复时跳回正面
+    const phase = Math.asin(Math.max(-1, Math.min(1, (lastTheta.current - 180) / AMP)));
+    const t0 = performance.now() - (phase / (Math.PI * 2)) * PERIOD;
     let raf = 0;
     let dragging = false;
 
@@ -100,6 +112,7 @@ export default function Logo3D({ className = "" }: { className?: string }) {
       if (!dragging) {
         // 正面在 180°（0° 是镜像背面），围绕 180° 小幅摆动
         const theta = 180 + AMP * Math.sin(((now - t0) / PERIOD) * Math.PI * 2);
+        lastTheta.current = theta;
         el.cameraOrbit = `${theta.toFixed(2)}deg 90deg 90%`;
       }
       raf = requestAnimationFrame(tick);
@@ -113,14 +126,18 @@ export default function Logo3D({ className = "" }: { className?: string }) {
     };
     el.addEventListener("pointerdown", onDown);
     window.addEventListener("pointerup", onUp);
+    window.addEventListener("pointercancel", onUp);
+    window.addEventListener("blur", onUp);
     raf = requestAnimationFrame(tick);
 
     return () => {
       cancelAnimationFrame(raf);
       el.removeEventListener("pointerdown", onDown);
       window.removeEventListener("pointerup", onUp);
+      window.removeEventListener("pointercancel", onUp);
+      window.removeEventListener("blur", onUp);
     };
-  }, [ready, reduced]);
+  }, [ready, reduced, visible]);
 
   return (
     <div ref={hostRef} className={`relative w-full h-full ${className}`}>

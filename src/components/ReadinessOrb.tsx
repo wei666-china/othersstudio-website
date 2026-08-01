@@ -111,9 +111,14 @@ function Meter({ score, level }: { score: number; level: Level }) {
     <div className="relative h-[5px] w-full rounded-full overflow-hidden" style={{ background: `${s.color}1f` }}>
       <motion.div
         className="absolute inset-y-0 left-0 rounded-full"
-        style={{ background: `linear-gradient(90deg, ${s.color}, ${s.lite})`, boxShadow: `0 0 12px ${s.color}66` }}
-        initial={{ width: 0 }}
-        animate={{ width: `${score}%` }}
+        style={{
+          width: `${score}%`,
+          transformOrigin: "left",
+          background: `linear-gradient(90deg, ${s.color}, ${s.lite})`,
+          boxShadow: `0 0 12px ${s.color}66`,
+        }}
+        initial={{ scaleX: 0 }}
+        animate={{ scaleX: 1 }}
         transition={{ duration: 1, ease: EASE, delay: 0.15 }}
       />
     </div>
@@ -303,7 +308,19 @@ export default function ReadinessOrb({ initialPage = 0 }: { initialPage?: number
   const c = COPY[lang];
   const reduced = !!useReducedMotion();
   const rootRef = useRef<HTMLDivElement>(null);
+  // 进场动画只播一次；键盘翻页必须跟随实时可见性，离开视口就交还方向键
   const inView = useInView(rootRef, { once: true, amount: 0.3 });
+  const [inViewNow, setInViewNow] = useState(false);
+  useEffect(() => {
+    const node = rootRef.current;
+    if (!node) return;
+    const ob = new IntersectionObserver(
+      ([entry]) => setInViewNow(entry.isIntersecting),
+      { threshold: 0.3 }
+    );
+    ob.observe(node);
+    return () => ob.disconnect();
+  }, []);
   const level = levelFor(SCORE);
 
   // 避免 hydration mismatch：SSR / 首帧不带动画，挂载后再启用。
@@ -332,16 +349,18 @@ export default function ReadinessOrb({ initialPage = 0 }: { initialPage?: number
   const prev = useCallback(() => go(page - 1, -1), [go, page]);
   const next = useCallback(() => go(page + 1, 1), [go, page]);
 
-  // 键盘左右翻页（当卡片在视口内时）
+  // 键盘左右翻页（仅当卡片当前可见，且焦点不在输入框/可编辑区时）
   useEffect(() => {
-    if (!inView) return;
+    if (!inViewNow) return;
     const onKey = (e: KeyboardEvent) => {
+      const t = e.target as HTMLElement | null;
+      if (t && (t.tagName === "INPUT" || t.tagName === "TEXTAREA" || t.isContentEditable)) return;
       if (e.key === "ArrowLeft") prev();
       else if (e.key === "ArrowRight") next();
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [inView, prev, next]);
+  }, [inViewNow, prev, next]);
 
   const slideVariants = {
     enter: (d: number) => (anim ? { x: d > 0 ? "100%" : "-100%", opacity: 0 } : { opacity: 0 }),

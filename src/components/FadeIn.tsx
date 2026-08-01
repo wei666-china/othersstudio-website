@@ -41,11 +41,12 @@ export default function FadeIn({
     <div
       ref={ref}
       style={{
+        transitionProperty: "opacity, transform",
         transitionDuration: "var(--dur-slow)",
         transitionTimingFunction: "var(--ease-out-soft)",
         ...(delay ? { transitionDelay: `${delay}ms` } : {}),
       }}
-      className={`transition-all ${
+      className={`${
         visible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-6"
       } ${className}`}
     >

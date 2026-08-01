@@ -43,7 +43,7 @@ export default function GuideAssistant() {
   const [typedLen, setTypedLen] = useState(0);
 
   const idRef = useRef(0);
-  const typeTimer = useRef<ReturnType<typeof setInterval> | null>(null);
+  const typeRaf = useRef<number | null>(null);
   const scrollRef = useRef<HTMLDivElement | null>(null);
   const inputRef = useRef<HTMLInputElement | null>(null);
 
@@ -59,34 +59,45 @@ export default function GuideAssistant() {
     if (open && messages.length === 0) {
       setMessages([{ id: nextId(), role: "assistant", text: ui.welcome }]);
     }
-    if (open) setTimeout(() => inputRef.current?.focus(), 320);
+    if (!open) return;
+    const focusTimer = setTimeout(() => inputRef.current?.focus(), 320);
+    return () => clearTimeout(focusTimer);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open]);
 
-  // 打字 / 新消息时滚动到底
+  // 新消息平滑滚到底；打字过程中即时贴底（避免每帧重启一次 smooth 滚动动画）
   useEffect(() => {
-    scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: "smooth" });
-  }, [messages, typedLen]);
+    const el = scrollRef.current;
+    el?.scrollTo({ top: el.scrollHeight, behavior: prefersReducedMotion() ? "auto" : "smooth" });
+  }, [messages]);
+  useEffect(() => {
+    const el = scrollRef.current;
+    if (el) el.scrollTop = el.scrollHeight;
+  }, [typedLen]);
 
-  useEffect(() => () => { if (typeTimer.current) clearInterval(typeTimer.current); }, []);
+  useEffect(() => () => { if (typeRaf.current !== null) cancelAnimationFrame(typeRaf.current); }, []);
 
+  // 打字机：rAF 按逝去时间推进（约 16ms/字），每帧至多一次状态更新
   const typeOut = useCallback((msgId: number, text: string) => {
-    if (typeTimer.current) clearInterval(typeTimer.current);
+    if (typeRaf.current !== null) cancelAnimationFrame(typeRaf.current);
     if (prefersReducedMotion()) {
       setTypingId(null);
       return;
     }
     setTypingId(msgId);
     setTypedLen(0);
-    let i = 0;
-    typeTimer.current = setInterval(() => {
-      i += 1;
+    const start = performance.now();
+    const tick = (now: number) => {
+      const i = Math.min(text.length, Math.floor((now - start) / 16));
       setTypedLen(i);
       if (i >= text.length) {
-        if (typeTimer.current) clearInterval(typeTimer.current);
+        typeRaf.current = null;
         setTypingId(null);
+        return;
       }
-    }, 16);
+      typeRaf.current = requestAnimationFrame(tick);
+    };
+    typeRaf.current = requestAnimationFrame(tick);
   }, []);
 
   const ask = useCallback(

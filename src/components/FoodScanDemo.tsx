@@ -135,12 +135,16 @@ export default function FoodScanDemo() {
   const [kcal, setKcal] = useState(0);
 
   const timers = useRef<ReturnType<typeof setTimeout>[]>([]);
-  const rafRef = useRef<number | null>(null);
+  const rafRef = useRef<number | null>(null); // 扫描线双 rAF
+  const countRaf = useRef<number | null>(null); // 热量数字滚动
 
   const cleanup = useCallback(() => {
     timers.current.forEach(clearTimeout);
     timers.current = [];
     if (rafRef.current) cancelAnimationFrame(rafRef.current);
+    if (countRaf.current) cancelAnimationFrame(countRaf.current);
+    rafRef.current = null;
+    countRaf.current = null;
   }, []);
 
   useEffect(() => cleanup, [cleanup]);
@@ -152,9 +156,9 @@ export default function FoodScanDemo() {
       const p = Math.min(1, (now - start) / dur);
       const eased = 1 - Math.pow(1 - p, 3);
       setKcal(Math.round(target * eased));
-      if (p < 1) rafRef.current = requestAnimationFrame(tick);
+      if (p < 1) countRaf.current = requestAnimationFrame(tick);
     };
-    rafRef.current = requestAnimationFrame(tick);
+    countRaf.current = requestAnimationFrame(tick);
   }, []);
 
   const run = useCallback(() => {
@@ -263,11 +267,11 @@ export default function FoodScanDemo() {
               />
             ))}
 
-            {/* 扫描线 */}
+            {/* 扫描线（包装层与容器同高，translateY 100% 即掠过全图——合成器动画，不触发布局） */}
             {phase === "scanning" && (
               <div
-                className="absolute left-0 right-0 pointer-events-none"
-                style={{ top: `${scanTop}%`, transition: "top 1.4s linear" }}
+                className="absolute inset-0 pointer-events-none"
+                style={{ transform: `translateY(${scanTop}%)`, transition: "transform 1.4s linear" }}
               >
                 <div className="h-[2px] w-full bg-accent shadow-[0_0_16px_4px_rgba(255,107,53,0.7)]" />
                 <div className="h-16 w-full bg-gradient-to-b from-[rgba(255,107,53,0.25)] to-transparent" />

@@ -268,9 +268,8 @@ function buildGeom(values: number[]) {
   return { pts, d, area, ticks, bottom, last: pts[n - 1] };
 }
 
-function StatBox({ label, value, suffix, show, delay }: { label: string; value: number; suffix: string; show: boolean; delay: number }) {
+function StatBox({ label, value, suffix, show, delay, dur = 1000 }: { label: string; value: number; suffix: string; show: boolean; delay: number; dur?: number }) {
   const [n, setN] = useState(0);
-  const raf = useRef<number | null>(null);
   useEffect(() => {
     if (!show) {
       setN(0);
@@ -281,23 +280,23 @@ function StatBox({ label, value, suffix, show, delay }: { label: string; value: 
       setN(value);
       return;
     }
-    const dur = 1000;
-    const start = performance.now() + delay;
-    const tick = (now: number) => {
-      if (now < start) {
-        raf.current = requestAnimationFrame(tick);
-        return;
-      }
-      const p = Math.min(1, (now - start) / dur);
-      const eased = 1 - Math.pow(1 - p, 3);
-      setN(Math.round(value * eased));
-      if (p < 1) raf.current = requestAnimationFrame(tick);
-    };
-    raf.current = requestAnimationFrame(tick);
+    // 延迟用 setTimeout（不能用 rAF 空转烧帧），到点再起 rAF 滚数字
+    let raf: number | null = null;
+    const timer = setTimeout(() => {
+      const start = performance.now();
+      const tick = (now: number) => {
+        const p = Math.min(1, (now - start) / dur);
+        const eased = 1 - Math.pow(1 - p, 3);
+        setN(Math.round(value * eased));
+        if (p < 1) raf = requestAnimationFrame(tick);
+      };
+      raf = requestAnimationFrame(tick);
+    }, delay);
     return () => {
-      if (raf.current) cancelAnimationFrame(raf.current);
+      clearTimeout(timer);
+      if (raf !== null) cancelAnimationFrame(raf);
     };
-  }, [show, value, delay]);
+  }, [show, value, delay, dur]);
 
   return (
     <div
@@ -352,10 +351,14 @@ export default function TrainingDataDemo() {
   const [showInsight, setShowInsight] = useState(false);
   const [cycle, setCycle] = useState(0); // 重新演示 / 切动作重启
   const [hover, setHover] = useState<number | null>(null); // 悬停的数据点索引
+  const [fast, setFast] = useState(false); // 首播完整节奏；之后切 tab 用缩短版
 
   const pathRef = useRef<SVGPathElement>(null);
   const svgRef = useRef<SVGSVGElement>(null);
   const timers = useRef<ReturnType<typeof setTimeout>[]>([]);
+  const everPlayed = useRef(false);
+  const hoverRaf = useRef<number | null>(null);
+  const pendingX = useRef(0);
 
   const view = EXERCISES[viewIdx];
   const unit = view.unit[lang];
@@ -371,6 +374,7 @@ export default function TrainingDataDemo() {
   }, []);
 
   // 触发一轮动画：描边生长 → 指标滚动 → 洞察浮现
+  // 首次进入播完整节奏；之后切 tab 播缩短版（节奏感保留，探索不拖沓）
   useEffect(() => {
     if (!inView) return;
     clearTimers();
@@ -385,6 +389,12 @@ export default function TrainingDataDemo() {
       return;
     }
 
+    const quick = everPlayed.current;
+    setFast(quick);
+    everPlayed.current = true;
+    const DRAW_MS = quick ? 500 : 1500;
+    const INSIGHT_MS = quick ? 700 : 1900;
+
     const len = path.getTotalLength();
     // 初始：完全隐藏（dashoffset = 全长），关掉过渡
     path.style.transition = "none";
@@ -395,13 +405,13 @@ export default function TrainingDataDemo() {
     // 双 rAF 后开始描边
     const r1 = requestAnimationFrame(() => {
       requestAnimationFrame(() => {
-        path.style.transition = "stroke-dashoffset 1500ms cubic-bezier(0.22, 1, 0.36, 1)";
+        path.style.transition = `stroke-dashoffset ${DRAW_MS}ms cubic-bezier(0.22, 1, 0.36, 1)`;
         path.style.strokeDashoffset = "0";
       });
     });
 
-    const tDraw = setTimeout(() => setDrawn(true), 1500);
-    const tInsight = setTimeout(() => setShowInsight(true), 1900);
+    const tDraw = setTimeout(() => setDrawn(true), DRAW_MS);
+    const tInsight = setTimeout(() => setShowInsight(true), INSIGHT_MS);
     timers.current.push(tDraw, tInsight);
 
     return () => {
@@ -412,6 +422,13 @@ export default function TrainingDataDemo() {
 
   useEffect(() => clearTimers, [clearTimers]);
 
+  useEffect(
+    () => () => {
+      if (hoverRaf.current !== null) cancelAnimationFrame(hoverRaf.current);
+    },
+    []
+  );
+
   const switchView = useCallback((i: number) => {
     setViewIdx(i);
     setHover(null);
@@ -420,24 +437,30 @@ export default function TrainingDataDemo() {
 
   const replay = useCallback(() => {
     setHover(null);
+    everPlayed.current = false; // 手动重播 = 想再看一遍完整版
     setCycle((n) => n + 1);
   }, []);
 
-  // 鼠标 / 触摸移动 → 找最近的数据点
+  // 鼠标 / 触摸移动 → 找最近的数据点（rAF 节流：每帧至多读一次布局、算一次索引）
   const handlePointer = useCallback(
     (e: React.PointerEvent<SVGRectElement>) => {
       if (!drawn) return;
-      const svg = svgRef.current;
-      if (!svg) return;
-      const rect = svg.getBoundingClientRect();
-      if (rect.width === 0) return;
-      const ratio = (e.clientX - rect.left) / rect.width;
-      const dataX = ratio * W;
-      const n = view.values.length;
-      const plotW = W - PAD_L - PAD_R;
-      let i = Math.round(((dataX - PAD_L) / plotW) * (n - 1));
-      i = Math.max(0, Math.min(n - 1, i));
-      setHover(i);
+      pendingX.current = e.clientX;
+      if (hoverRaf.current !== null) return;
+      hoverRaf.current = requestAnimationFrame(() => {
+        hoverRaf.current = null;
+        const svg = svgRef.current;
+        if (!svg) return;
+        const rect = svg.getBoundingClientRect();
+        if (rect.width === 0) return;
+        const ratio = (pendingX.current - rect.left) / rect.width;
+        const dataX = ratio * W;
+        const n = view.values.length;
+        const plotW = W - PAD_L - PAD_R;
+        let i = Math.round(((dataX - PAD_L) / plotW) * (n - 1));
+        i = Math.max(0, Math.min(n - 1, i));
+        setHover(i);
+      });
     },
     [drawn, view.values.length]
   );
@@ -590,19 +613,22 @@ export default function TrainingDataDemo() {
                   <line x1={activePt.x} x2={activePt.x} y1={PAD_T} y2={geom.bottom} stroke="rgba(255,255,255,0.25)" strokeWidth="1" strokeDasharray="3 3" />
                 )}
 
-                {/* 数据点 */}
+                {/* 数据点（放大用 transform scale，不动几何属性 r，避免整幅 SVG 重栅格化） */}
                 {geom.pts.map((p, i) => (
                   <circle
                     key={i}
                     cx={p.x}
                     cy={p.y}
-                    r={i === active ? 4.5 : 2.6}
+                    r={2.6}
                     fill={i === active ? "var(--c-accent)" : "rgba(255,255,255,0.55)"}
                     stroke="var(--c-ink)"
-                    strokeWidth={i === active ? 2.5 : 1}
+                    strokeWidth={i === active ? 1.44 : 1}
                     style={{
                       opacity: drawn ? 1 : 0,
-                      transition: `opacity var(--dur-base) var(--ease-out-soft) ${Math.min(i * 60, 700)}ms, r var(--dur-fast) var(--ease-out-soft)`,
+                      transformBox: "fill-box",
+                      transformOrigin: "center",
+                      transform: i === active ? "scale(1.73)" : "scale(1)",
+                      transition: `opacity var(--dur-base) var(--ease-out-soft) ${Math.min(i * 60, 700)}ms, transform var(--dur-fast) var(--ease-out-soft)`,
                     }}
                   />
                 ))}
@@ -674,7 +700,8 @@ export default function TrainingDataDemo() {
                   value={s.value}
                   suffix={typeof s.suffix === "string" ? s.suffix : s.suffix[lang]}
                   show={drawn}
-                  delay={i * 120}
+                  delay={i * (fast ? 60 : 120)}
+                  dur={fast ? 400 : 1000}
                 />
               ))}
             </div>

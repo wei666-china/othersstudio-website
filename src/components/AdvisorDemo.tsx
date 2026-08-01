@@ -117,13 +117,22 @@ export default function AdvisorDemo() {
 
   const stepTimer = useRef<ReturnType<typeof setInterval> | null>(null);
   const revealTimer = useRef<ReturnType<typeof setInterval> | null>(null);
+  const abortRef = useRef<AbortController | null>(null);
+  const alive = useRef(true); // 卸载后不再 setState，也中止在途请求
 
   const clearTimers = useCallback(() => {
     if (stepTimer.current) clearInterval(stepTimer.current);
     if (revealTimer.current) clearInterval(revealTimer.current);
   }, []);
 
-  useEffect(() => () => clearTimers(), [clearTimers]);
+  useEffect(
+    () => () => {
+      alive.current = false;
+      abortRef.current?.abort();
+      clearTimers();
+    },
+    [clearTimers]
+  );
 
   // 计划卡逐行浮现
   useEffect(() => {
@@ -164,19 +173,26 @@ export default function AdvisorDemo() {
     }
     const minDelay = sleep(reduced ? 0 : 550 * steps + 300);
 
+    abortRef.current?.abort();
+    const ctrl = new AbortController();
+    abortRef.current = ctrl;
+
     try {
       const res = await fetch("/api/advisor", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ goal, daysPerWeek: days, equipment, experience, locale: lang }),
+        signal: ctrl.signal,
       });
       await minDelay;
       clearTimers();
+      if (!alive.current) return;
       if (res.status === 429) {
         setPhase("limited");
         return;
       }
       const data = (await res.json()) as { plan?: PlanCard };
+      if (!alive.current) return;
       if (!data.plan) {
         setPhase("error");
         return;
@@ -186,6 +202,7 @@ export default function AdvisorDemo() {
     } catch {
       await minDelay;
       clearTimers();
+      if (!alive.current) return;
       setPhase("error");
     }
   }, [c.thinking.length, goal, days, equipment, experience, lang, clearTimers]);
